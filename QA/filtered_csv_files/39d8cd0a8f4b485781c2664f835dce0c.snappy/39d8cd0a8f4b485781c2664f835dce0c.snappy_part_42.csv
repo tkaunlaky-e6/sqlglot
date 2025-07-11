@@ -1,0 +1,3121 @@
+UNQ_ALIAS,QUERY_TEXT
+8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa,"/* cppi::8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa */
+/* QuickSight 630c16d7-39b4-497a-9542-48ea39b49b3a */
+SELECT ""dataset_id"", ""business_date"", ""pbor_node_name"", ""split_level"", ""metric_type"", ""currency"", ""period"", ""value"", ""business_date_string"", ""period_sorted""
+FROM (with scd_perf as (
+	/* DATA PULLED:
+	 * - Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Department: 1D, MTD, QTD, FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, cast( business_date as date ) as business_date
+		, case 
+			when dataset_id in ( 'TOTALFUND', 'CMBP_NET' ) and split_level = 0 then 'Total Fund'
+			when dataset_id = 'ACCOUNTS_BCPP' and split_level = 0 then 'Base CPP'
+			when dataset_id = 'ACCOUNTS_ACPP' and split_level = 0 then 'Additional CPP'
+			when dataset_id in ( 'ATP_TF', 'ATP_TF_D' ) and split_level = 1 then 'Total Fund Benchmark Portfolio'
+		  	else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  scd.dataset_id 
+			, scd.business_date 
+			, scd.pbor_node_name 
+			, scd.split_level 
+			-- for below, TOTALFUND local values should be not used; CMBP_NET CAD values should not be used
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_reporting_currency end time_weighted_return_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_local_currency end time_weighted_return_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_reporting_currency end time_weighted_return_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_local_currency end time_weighted_return_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_reporting_currency end time_weighted_return_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_local_currency end time_weighted_return_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_reporting_currency end time_weighted_return_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_local_currency end time_weighted_return_fiscal_year_to_date_local_currency
+			, perf.time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, perf.time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_reporting_currency end time_weighted_return_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_local_currency end time_weighted_return_5year_roll_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_reporting_currency end pnl_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_local_currency end pnl_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_month_to_date_reporting_currency end pnl_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_month_to_date_local_currency end pnl_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_reporting_currency end pnl_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_local_currency end pnl_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_reporting_currency end pnl_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_local_currency end pnl_fiscal_year_to_date_local_currency
+			, perf.pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, perf.pnl_4yp_lc as pnl_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_5year_roll_reporting_currency end pnl_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_5year_roll_local_currency end pnl_5year_roll_local_currency
+			, scd.last_update
+		from 
+			/* scd_performance_bottom_up:
+			 * - Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 5Y
+			 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Department: 1D, MTD, QTD, FYTD, 5Y
+			 */
+			performance.scd_performance_bottom_up scd
+		left join (
+			/* perf_bottom_up_monthly:
+			 * - Total Fund: 4Y+FYTD
+			 * - Total Fund bCPP/aCPP: 4Y+FYTD
+			 */
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else time_weighted_return_4yp_lc end time_weighted_return_4yp_lc /* TOTALFUND local should not be used */
+				, pnl_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else pnl_4yp_lc end pnl_4yp_lc /* TOTALFUND local should not be used */
+			from
+				performance.perf_bottom_up_monthly 
+			where 
+				/* TOTAL FUND */
+				(
+					dataset_id in ( 'TOTALFUND_D' )
+					and ""level"" = 0
+					and periods_per_year = 365
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					dataset_id in ( 'ACCOUNTS_BCPP_D', 'ACCOUNTS_ACPP_D' )
+					and ""level"" = 0 
+					and periods_per_year = 365
+				)
+			/* perf_top_down_monthly:
+			 * - Benchmark Portfolio Total Fund: 4Y+FYTD
+			 */
+			union all
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, time_weighted_return_4yp_lc
+				, pnl_4yp_rc
+				, pnl_4yp_lc
+			from
+				performance.perf_top_down_monthly 
+			where 
+				periods_per_year = 365
+				and dataset_id = 'ATP_TF_D'
+		) perf
+		on
+			scd.business_date = cast( perf.business_date as varchar )
+			and scd.dataset_id = perf.dataset_id
+			and scd.pbor_node_name = perf.node_name
+			and scd.split_level = perf.""level""
+		where 
+			scd.periods_per_year = '365'
+			and (
+				/* TOTAL FUND */
+				(
+					scd.dataset_id in ( 'TOTALFUND', 'CMBP_NET' )
+					and scd.split_level = 0
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					scd.dataset_id in ( 'ACCOUNTS_BCPP', 'ACCOUNTS_ACPP' )
+					and scd.split_level = 0 
+				)
+				/* BENCHMARK PORTFOLIO */
+				or (
+					scd.dataset_id in ( 'ATP_TF' )
+					and scd.split_level = 1
+				)
+				/* DEPARTMENTS */
+				or (
+					scd.dataset_id in ( 'CMBP_NET' )
+					and scd.split_level = 2
+					and scd.pbor_parent_node_id = 2
+				)
+			)
+	) scd_perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_month_to_date_reporting_currency'
+			, 'time_weighted_return_month_to_date_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_month_to_date_reporting_currency'
+			, 'pnl_month_to_date_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_month_to_date_reporting_currency
+			, time_weighted_return_month_to_date_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_month_to_date_reporting_currency
+			, pnl_month_to_date_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) scd_perf_unpivot ( metric, value )
+), perf as (
+	/* DATA PULLED:
+	 * - Benchmark Portfolio bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) Total Fund: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, business_date
+		, case
+			when dataset_id = 'ATP_BCPP_D' then 'Base CPP Benchmark Portfolio'
+			when dataset_id = 'ATP_ACPP_D' then 'Additional CPP Benchmark Portfolio'
+			when dataset_id = 'INV_SELECT_TF_D' then 'Total Fund Value-Added'
+			when dataset_id = 'INV_SELECT_BCPPD' then 'Base CPP Value-Added'
+			when dataset_id = 'INV_SELECT_ACPPD' then 'Additional CPP Value-Added'
+			else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  dataset_id
+			, business_date
+			, node_name as pbor_node_name
+			, ""level"" as split_level
+			, time_weighted_return_rc as time_weighted_return_reporting_currency
+			, time_weighted_return_lc as time_weighted_return_local_currency
+			, time_weighted_return_qtd_rc as time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_qtd_lc as time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fytd_rc as time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fytd_lc as time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5y_roll_rc as time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5y_roll_lc as time_weighted_return_5year_roll_local_currency
+			, pnl_rc as pnl_reporting_currency
+			, pnl_lc as pnl_local_currency
+			, pnl_qtd_rc as pnl_quarter_to_date_reporting_currency
+			, pnl_qtd_lc as pnl_quarter_to_date_local_currency
+			, pnl_fytd_rc as pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fytd_lc as pnl_fiscal_year_to_date_local_currency
+			, pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, pnl_4yp_lc as pnl_4year_plus_local_currency
+			, pnl_5y_roll_rc as pnl_5year_roll_reporting_currency
+			, pnl_5y_roll_lc as pnl_5year_roll_local_currency
+		from
+			performance.perf_top_down_monthly 
+		where 
+			dataset_id in ( 'ATP_BCPP_D', 'ATP_ACPP_D', 'INV_SELECT_TF_D', 'INV_SELECT_ACPPD', 'INV_SELECT_BCPPD' )
+			and ""level"" = 1
+	) perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) perf_unpivot ( metric, value )
+), cmb as (
+	select * from scd_perf
+	union all
+	select * from perf
+), cmb_clean as (
+	select
+		cmb.*
+		, cast( business_date as varchar ) as business_date_string
+		, case
+			when period = '1D' then '1. 1-Day'
+			when period = 'MTD' then '2. MTD'
+			when period = 'QTD' then '3. QTD'
+			when period = 'FYTD' then '4. FYTD'
+			when period = '4Y+FYTD' then '5. 4Y+FYTD'
+			when period = '5Y' then '6. 5Y'
+		  end period_sorted
+	from
+		cmb
+	where
+		value is not null
+		and business_date >= cast( '2019-04-01' as date )
+		and not ( pbor_node_name in ( 'Active Equities', 'Capital Markets & Factor Investing' ) and metric_type = 'Return' )
+)
+select * from cmb_clean) AS ""finsights_perf_returns_income_daily"""
+8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa,"/* cppi::8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa */
+/* QuickSight 630c16d7-39b4-497a-9542-48ea39b49b3a */
+SELECT ""dataset_id"", ""business_date"", ""pbor_node_name"", ""split_level"", ""metric_type"", ""currency"", ""period"", ""value"", ""business_date_string"", ""period_sorted""
+FROM (with scd_perf as (
+	/* DATA PULLED:
+	 * - Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Department: 1D, MTD, QTD, FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, cast( business_date as date ) as business_date
+		, case 
+			when dataset_id in ( 'TOTALFUND', 'CMBP_NET' ) and split_level = 0 then 'Total Fund'
+			when dataset_id = 'ACCOUNTS_BCPP' and split_level = 0 then 'Base CPP'
+			when dataset_id = 'ACCOUNTS_ACPP' and split_level = 0 then 'Additional CPP'
+			when dataset_id in ( 'ATP_TF', 'ATP_TF_D' ) and split_level = 1 then 'Total Fund Benchmark Portfolio'
+		  	else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  scd.dataset_id 
+			, scd.business_date 
+			, scd.pbor_node_name 
+			, scd.split_level 
+			-- for below, TOTALFUND local values should be not used; CMBP_NET CAD values should not be used
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_reporting_currency end time_weighted_return_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_local_currency end time_weighted_return_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_reporting_currency end time_weighted_return_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_local_currency end time_weighted_return_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_reporting_currency end time_weighted_return_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_local_currency end time_weighted_return_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_reporting_currency end time_weighted_return_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_local_currency end time_weighted_return_fiscal_year_to_date_local_currency
+			, perf.time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, perf.time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_reporting_currency end time_weighted_return_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_local_currency end time_weighted_return_5year_roll_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_reporting_currency end pnl_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_local_currency end pnl_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_month_to_date_reporting_currency end pnl_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_month_to_date_local_currency end pnl_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_reporting_currency end pnl_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_local_currency end pnl_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_reporting_currency end pnl_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_local_currency end pnl_fiscal_year_to_date_local_currency
+			, perf.pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, perf.pnl_4yp_lc as pnl_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_5year_roll_reporting_currency end pnl_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_5year_roll_local_currency end pnl_5year_roll_local_currency
+			, scd.last_update
+		from 
+			/* scd_performance_bottom_up:
+			 * - Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 5Y
+			 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Department: 1D, MTD, QTD, FYTD, 5Y
+			 */
+			performance.scd_performance_bottom_up scd
+		left join (
+			/* perf_bottom_up_monthly:
+			 * - Total Fund: 4Y+FYTD
+			 * - Total Fund bCPP/aCPP: 4Y+FYTD
+			 */
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else time_weighted_return_4yp_lc end time_weighted_return_4yp_lc /* TOTALFUND local should not be used */
+				, pnl_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else pnl_4yp_lc end pnl_4yp_lc /* TOTALFUND local should not be used */
+			from
+				performance.perf_bottom_up_monthly 
+			where 
+				/* TOTAL FUND */
+				(
+					dataset_id in ( 'TOTALFUND_D' )
+					and ""level"" = 0
+					and periods_per_year = 365
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					dataset_id in ( 'ACCOUNTS_BCPP_D', 'ACCOUNTS_ACPP_D' )
+					and ""level"" = 0 
+					and periods_per_year = 365
+				)
+			/* perf_top_down_monthly:
+			 * - Benchmark Portfolio Total Fund: 4Y+FYTD
+			 */
+			union all
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, time_weighted_return_4yp_lc
+				, pnl_4yp_rc
+				, pnl_4yp_lc
+			from
+				performance.perf_top_down_monthly 
+			where 
+				periods_per_year = 365
+				and dataset_id = 'ATP_TF_D'
+		) perf
+		on
+			scd.business_date = cast( perf.business_date as varchar )
+			and scd.dataset_id = perf.dataset_id
+			and scd.pbor_node_name = perf.node_name
+			and scd.split_level = perf.""level""
+		where 
+			scd.periods_per_year = '365'
+			and (
+				/* TOTAL FUND */
+				(
+					scd.dataset_id in ( 'TOTALFUND', 'CMBP_NET' )
+					and scd.split_level = 0
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					scd.dataset_id in ( 'ACCOUNTS_BCPP', 'ACCOUNTS_ACPP' )
+					and scd.split_level = 0 
+				)
+				/* BENCHMARK PORTFOLIO */
+				or (
+					scd.dataset_id in ( 'ATP_TF' )
+					and scd.split_level = 1
+				)
+				/* DEPARTMENTS */
+				or (
+					scd.dataset_id in ( 'CMBP_NET' )
+					and scd.split_level = 2
+					and scd.pbor_parent_node_id = 2
+				)
+			)
+	) scd_perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_month_to_date_reporting_currency'
+			, 'time_weighted_return_month_to_date_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_month_to_date_reporting_currency'
+			, 'pnl_month_to_date_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_month_to_date_reporting_currency
+			, time_weighted_return_month_to_date_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_month_to_date_reporting_currency
+			, pnl_month_to_date_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) scd_perf_unpivot ( metric, value )
+), perf as (
+	/* DATA PULLED:
+	 * - Benchmark Portfolio bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) Total Fund: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, business_date
+		, case
+			when dataset_id = 'ATP_BCPP_D' then 'Base CPP Benchmark Portfolio'
+			when dataset_id = 'ATP_ACPP_D' then 'Additional CPP Benchmark Portfolio'
+			when dataset_id = 'INV_SELECT_TF_D' then 'Total Fund Value-Added'
+			when dataset_id = 'INV_SELECT_BCPPD' then 'Base CPP Value-Added'
+			when dataset_id = 'INV_SELECT_ACPPD' then 'Additional CPP Value-Added'
+			else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  dataset_id
+			, business_date
+			, node_name as pbor_node_name
+			, ""level"" as split_level
+			, time_weighted_return_rc as time_weighted_return_reporting_currency
+			, time_weighted_return_lc as time_weighted_return_local_currency
+			, time_weighted_return_qtd_rc as time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_qtd_lc as time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fytd_rc as time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fytd_lc as time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5y_roll_rc as time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5y_roll_lc as time_weighted_return_5year_roll_local_currency
+			, pnl_rc as pnl_reporting_currency
+			, pnl_lc as pnl_local_currency
+			, pnl_qtd_rc as pnl_quarter_to_date_reporting_currency
+			, pnl_qtd_lc as pnl_quarter_to_date_local_currency
+			, pnl_fytd_rc as pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fytd_lc as pnl_fiscal_year_to_date_local_currency
+			, pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, pnl_4yp_lc as pnl_4year_plus_local_currency
+			, pnl_5y_roll_rc as pnl_5year_roll_reporting_currency
+			, pnl_5y_roll_lc as pnl_5year_roll_local_currency
+		from
+			performance.perf_top_down_monthly 
+		where 
+			dataset_id in ( 'ATP_BCPP_D', 'ATP_ACPP_D', 'INV_SELECT_TF_D', 'INV_SELECT_ACPPD', 'INV_SELECT_BCPPD' )
+			and ""level"" = 1
+	) perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) perf_unpivot ( metric, value )
+), cmb as (
+	select * from scd_perf
+	union all
+	select * from perf
+), cmb_clean as (
+	select
+		cmb.*
+		, cast( business_date as varchar ) as business_date_string
+		, case
+			when period = '1D' then '1. 1-Day'
+			when period = 'MTD' then '2. MTD'
+			when period = 'QTD' then '3. QTD'
+			when period = 'FYTD' then '4. FYTD'
+			when period = '4Y+FYTD' then '5. 4Y+FYTD'
+			when period = '5Y' then '6. 5Y'
+		  end period_sorted
+	from
+		cmb
+	where
+		value is not null
+		and business_date >= cast( '2019-04-01' as date )
+		and not ( pbor_node_name in ( 'Active Equities', 'Capital Markets & Factor Investing' ) and metric_type = 'Return' )
+)
+select * from cmb_clean) AS ""finsights_perf_returns_income_daily"""
+8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa,"/* cppi::8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa */
+/* QuickSight 630c16d7-39b4-497a-9542-48ea39b49b3a */
+SELECT ""dataset_id"", ""business_date"", ""pbor_node_name"", ""split_level"", ""metric_type"", ""currency"", ""period"", ""value"", ""business_date_string"", ""period_sorted""
+FROM (with scd_perf as (
+	/* DATA PULLED:
+	 * - Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Department: 1D, MTD, QTD, FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, cast( business_date as date ) as business_date
+		, case 
+			when dataset_id in ( 'TOTALFUND', 'CMBP_NET' ) and split_level = 0 then 'Total Fund'
+			when dataset_id = 'ACCOUNTS_BCPP' and split_level = 0 then 'Base CPP'
+			when dataset_id = 'ACCOUNTS_ACPP' and split_level = 0 then 'Additional CPP'
+			when dataset_id in ( 'ATP_TF', 'ATP_TF_D' ) and split_level = 1 then 'Total Fund Benchmark Portfolio'
+		  	else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  scd.dataset_id 
+			, scd.business_date 
+			, scd.pbor_node_name 
+			, scd.split_level 
+			-- for below, TOTALFUND local values should be not used; CMBP_NET CAD values should not be used
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_reporting_currency end time_weighted_return_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_local_currency end time_weighted_return_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_reporting_currency end time_weighted_return_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_local_currency end time_weighted_return_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_reporting_currency end time_weighted_return_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_local_currency end time_weighted_return_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_reporting_currency end time_weighted_return_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_local_currency end time_weighted_return_fiscal_year_to_date_local_currency
+			, perf.time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, perf.time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_reporting_currency end time_weighted_return_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_local_currency end time_weighted_return_5year_roll_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_reporting_currency end pnl_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_local_currency end pnl_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_month_to_date_reporting_currency end pnl_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_month_to_date_local_currency end pnl_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_reporting_currency end pnl_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_local_currency end pnl_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_reporting_currency end pnl_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_local_currency end pnl_fiscal_year_to_date_local_currency
+			, perf.pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, perf.pnl_4yp_lc as pnl_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_5year_roll_reporting_currency end pnl_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_5year_roll_local_currency end pnl_5year_roll_local_currency
+			, scd.last_update
+		from 
+			/* scd_performance_bottom_up:
+			 * - Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 5Y
+			 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Department: 1D, MTD, QTD, FYTD, 5Y
+			 */
+			performance.scd_performance_bottom_up scd
+		left join (
+			/* perf_bottom_up_monthly:
+			 * - Total Fund: 4Y+FYTD
+			 * - Total Fund bCPP/aCPP: 4Y+FYTD
+			 */
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else time_weighted_return_4yp_lc end time_weighted_return_4yp_lc /* TOTALFUND local should not be used */
+				, pnl_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else pnl_4yp_lc end pnl_4yp_lc /* TOTALFUND local should not be used */
+			from
+				performance.perf_bottom_up_monthly 
+			where 
+				/* TOTAL FUND */
+				(
+					dataset_id in ( 'TOTALFUND_D' )
+					and ""level"" = 0
+					and periods_per_year = 365
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					dataset_id in ( 'ACCOUNTS_BCPP_D', 'ACCOUNTS_ACPP_D' )
+					and ""level"" = 0 
+					and periods_per_year = 365
+				)
+			/* perf_top_down_monthly:
+			 * - Benchmark Portfolio Total Fund: 4Y+FYTD
+			 */
+			union all
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, time_weighted_return_4yp_lc
+				, pnl_4yp_rc
+				, pnl_4yp_lc
+			from
+				performance.perf_top_down_monthly 
+			where 
+				periods_per_year = 365
+				and dataset_id = 'ATP_TF_D'
+		) perf
+		on
+			scd.business_date = cast( perf.business_date as varchar )
+			and scd.dataset_id = perf.dataset_id
+			and scd.pbor_node_name = perf.node_name
+			and scd.split_level = perf.""level""
+		where 
+			scd.periods_per_year = '365'
+			and (
+				/* TOTAL FUND */
+				(
+					scd.dataset_id in ( 'TOTALFUND', 'CMBP_NET' )
+					and scd.split_level = 0
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					scd.dataset_id in ( 'ACCOUNTS_BCPP', 'ACCOUNTS_ACPP' )
+					and scd.split_level = 0 
+				)
+				/* BENCHMARK PORTFOLIO */
+				or (
+					scd.dataset_id in ( 'ATP_TF' )
+					and scd.split_level = 1
+				)
+				/* DEPARTMENTS */
+				or (
+					scd.dataset_id in ( 'CMBP_NET' )
+					and scd.split_level = 2
+					and scd.pbor_parent_node_id = 2
+				)
+			)
+	) scd_perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_month_to_date_reporting_currency'
+			, 'time_weighted_return_month_to_date_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_month_to_date_reporting_currency'
+			, 'pnl_month_to_date_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_month_to_date_reporting_currency
+			, time_weighted_return_month_to_date_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_month_to_date_reporting_currency
+			, pnl_month_to_date_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) scd_perf_unpivot ( metric, value )
+), perf as (
+	/* DATA PULLED:
+	 * - Benchmark Portfolio bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) Total Fund: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, business_date
+		, case
+			when dataset_id = 'ATP_BCPP_D' then 'Base CPP Benchmark Portfolio'
+			when dataset_id = 'ATP_ACPP_D' then 'Additional CPP Benchmark Portfolio'
+			when dataset_id = 'INV_SELECT_TF_D' then 'Total Fund Value-Added'
+			when dataset_id = 'INV_SELECT_BCPPD' then 'Base CPP Value-Added'
+			when dataset_id = 'INV_SELECT_ACPPD' then 'Additional CPP Value-Added'
+			else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  dataset_id
+			, business_date
+			, node_name as pbor_node_name
+			, ""level"" as split_level
+			, time_weighted_return_rc as time_weighted_return_reporting_currency
+			, time_weighted_return_lc as time_weighted_return_local_currency
+			, time_weighted_return_qtd_rc as time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_qtd_lc as time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fytd_rc as time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fytd_lc as time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5y_roll_rc as time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5y_roll_lc as time_weighted_return_5year_roll_local_currency
+			, pnl_rc as pnl_reporting_currency
+			, pnl_lc as pnl_local_currency
+			, pnl_qtd_rc as pnl_quarter_to_date_reporting_currency
+			, pnl_qtd_lc as pnl_quarter_to_date_local_currency
+			, pnl_fytd_rc as pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fytd_lc as pnl_fiscal_year_to_date_local_currency
+			, pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, pnl_4yp_lc as pnl_4year_plus_local_currency
+			, pnl_5y_roll_rc as pnl_5year_roll_reporting_currency
+			, pnl_5y_roll_lc as pnl_5year_roll_local_currency
+		from
+			performance.perf_top_down_monthly 
+		where 
+			dataset_id in ( 'ATP_BCPP_D', 'ATP_ACPP_D', 'INV_SELECT_TF_D', 'INV_SELECT_ACPPD', 'INV_SELECT_BCPPD' )
+			and ""level"" = 1
+	) perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) perf_unpivot ( metric, value )
+), cmb as (
+	select * from scd_perf
+	union all
+	select * from perf
+), cmb_clean as (
+	select
+		cmb.*
+		, cast( business_date as varchar ) as business_date_string
+		, case
+			when period = '1D' then '1. 1-Day'
+			when period = 'MTD' then '2. MTD'
+			when period = 'QTD' then '3. QTD'
+			when period = 'FYTD' then '4. FYTD'
+			when period = '4Y+FYTD' then '5. 4Y+FYTD'
+			when period = '5Y' then '6. 5Y'
+		  end period_sorted
+	from
+		cmb
+	where
+		value is not null
+		and business_date >= cast( '2019-04-01' as date )
+		and not ( pbor_node_name in ( 'Active Equities', 'Capital Markets & Factor Investing' ) and metric_type = 'Return' )
+)
+select * from cmb_clean) AS ""finsights_perf_returns_income_daily"""
+8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa,"/* cppi::8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa */
+/* QuickSight 630c16d7-39b4-497a-9542-48ea39b49b3a */
+SELECT ""dataset_id"", ""business_date"", ""pbor_node_name"", ""split_level"", ""metric_type"", ""currency"", ""period"", ""value"", ""business_date_string"", ""period_sorted""
+FROM (with scd_perf as (
+	/* DATA PULLED:
+	 * - Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Department: 1D, MTD, QTD, FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, cast( business_date as date ) as business_date
+		, case 
+			when dataset_id in ( 'TOTALFUND', 'CMBP_NET' ) and split_level = 0 then 'Total Fund'
+			when dataset_id = 'ACCOUNTS_BCPP' and split_level = 0 then 'Base CPP'
+			when dataset_id = 'ACCOUNTS_ACPP' and split_level = 0 then 'Additional CPP'
+			when dataset_id in ( 'ATP_TF', 'ATP_TF_D' ) and split_level = 1 then 'Total Fund Benchmark Portfolio'
+		  	else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  scd.dataset_id 
+			, scd.business_date 
+			, scd.pbor_node_name 
+			, scd.split_level 
+			-- for below, TOTALFUND local values should be not used; CMBP_NET CAD values should not be used
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_reporting_currency end time_weighted_return_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_local_currency end time_weighted_return_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_reporting_currency end time_weighted_return_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_local_currency end time_weighted_return_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_reporting_currency end time_weighted_return_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_local_currency end time_weighted_return_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_reporting_currency end time_weighted_return_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_local_currency end time_weighted_return_fiscal_year_to_date_local_currency
+			, perf.time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, perf.time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_reporting_currency end time_weighted_return_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_local_currency end time_weighted_return_5year_roll_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_reporting_currency end pnl_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_local_currency end pnl_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_month_to_date_reporting_currency end pnl_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_month_to_date_local_currency end pnl_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_reporting_currency end pnl_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_local_currency end pnl_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_reporting_currency end pnl_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_local_currency end pnl_fiscal_year_to_date_local_currency
+			, perf.pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, perf.pnl_4yp_lc as pnl_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_5year_roll_reporting_currency end pnl_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_5year_roll_local_currency end pnl_5year_roll_local_currency
+			, scd.last_update
+		from 
+			/* scd_performance_bottom_up:
+			 * - Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 5Y
+			 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Department: 1D, MTD, QTD, FYTD, 5Y
+			 */
+			performance.scd_performance_bottom_up scd
+		left join (
+			/* perf_bottom_up_monthly:
+			 * - Total Fund: 4Y+FYTD
+			 * - Total Fund bCPP/aCPP: 4Y+FYTD
+			 */
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else time_weighted_return_4yp_lc end time_weighted_return_4yp_lc /* TOTALFUND local should not be used */
+				, pnl_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else pnl_4yp_lc end pnl_4yp_lc /* TOTALFUND local should not be used */
+			from
+				performance.perf_bottom_up_monthly 
+			where 
+				/* TOTAL FUND */
+				(
+					dataset_id in ( 'TOTALFUND_D' )
+					and ""level"" = 0
+					and periods_per_year = 365
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					dataset_id in ( 'ACCOUNTS_BCPP_D', 'ACCOUNTS_ACPP_D' )
+					and ""level"" = 0 
+					and periods_per_year = 365
+				)
+			/* perf_top_down_monthly:
+			 * - Benchmark Portfolio Total Fund: 4Y+FYTD
+			 */
+			union all
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, time_weighted_return_4yp_lc
+				, pnl_4yp_rc
+				, pnl_4yp_lc
+			from
+				performance.perf_top_down_monthly 
+			where 
+				periods_per_year = 365
+				and dataset_id = 'ATP_TF_D'
+		) perf
+		on
+			scd.business_date = cast( perf.business_date as varchar )
+			and scd.dataset_id = perf.dataset_id
+			and scd.pbor_node_name = perf.node_name
+			and scd.split_level = perf.""level""
+		where 
+			scd.periods_per_year = '365'
+			and (
+				/* TOTAL FUND */
+				(
+					scd.dataset_id in ( 'TOTALFUND', 'CMBP_NET' )
+					and scd.split_level = 0
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					scd.dataset_id in ( 'ACCOUNTS_BCPP', 'ACCOUNTS_ACPP' )
+					and scd.split_level = 0 
+				)
+				/* BENCHMARK PORTFOLIO */
+				or (
+					scd.dataset_id in ( 'ATP_TF' )
+					and scd.split_level = 1
+				)
+				/* DEPARTMENTS */
+				or (
+					scd.dataset_id in ( 'CMBP_NET' )
+					and scd.split_level = 2
+					and scd.pbor_parent_node_id = 2
+				)
+			)
+	) scd_perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_month_to_date_reporting_currency'
+			, 'time_weighted_return_month_to_date_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_month_to_date_reporting_currency'
+			, 'pnl_month_to_date_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_month_to_date_reporting_currency
+			, time_weighted_return_month_to_date_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_month_to_date_reporting_currency
+			, pnl_month_to_date_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) scd_perf_unpivot ( metric, value )
+), perf as (
+	/* DATA PULLED:
+	 * - Benchmark Portfolio bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) Total Fund: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, business_date
+		, case
+			when dataset_id = 'ATP_BCPP_D' then 'Base CPP Benchmark Portfolio'
+			when dataset_id = 'ATP_ACPP_D' then 'Additional CPP Benchmark Portfolio'
+			when dataset_id = 'INV_SELECT_TF_D' then 'Total Fund Value-Added'
+			when dataset_id = 'INV_SELECT_BCPPD' then 'Base CPP Value-Added'
+			when dataset_id = 'INV_SELECT_ACPPD' then 'Additional CPP Value-Added'
+			else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  dataset_id
+			, business_date
+			, node_name as pbor_node_name
+			, ""level"" as split_level
+			, time_weighted_return_rc as time_weighted_return_reporting_currency
+			, time_weighted_return_lc as time_weighted_return_local_currency
+			, time_weighted_return_qtd_rc as time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_qtd_lc as time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fytd_rc as time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fytd_lc as time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5y_roll_rc as time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5y_roll_lc as time_weighted_return_5year_roll_local_currency
+			, pnl_rc as pnl_reporting_currency
+			, pnl_lc as pnl_local_currency
+			, pnl_qtd_rc as pnl_quarter_to_date_reporting_currency
+			, pnl_qtd_lc as pnl_quarter_to_date_local_currency
+			, pnl_fytd_rc as pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fytd_lc as pnl_fiscal_year_to_date_local_currency
+			, pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, pnl_4yp_lc as pnl_4year_plus_local_currency
+			, pnl_5y_roll_rc as pnl_5year_roll_reporting_currency
+			, pnl_5y_roll_lc as pnl_5year_roll_local_currency
+		from
+			performance.perf_top_down_monthly 
+		where 
+			dataset_id in ( 'ATP_BCPP_D', 'ATP_ACPP_D', 'INV_SELECT_TF_D', 'INV_SELECT_ACPPD', 'INV_SELECT_BCPPD' )
+			and ""level"" = 1
+	) perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) perf_unpivot ( metric, value )
+), cmb as (
+	select * from scd_perf
+	union all
+	select * from perf
+), cmb_clean as (
+	select
+		cmb.*
+		, cast( business_date as varchar ) as business_date_string
+		, case
+			when period = '1D' then '1. 1-Day'
+			when period = 'MTD' then '2. MTD'
+			when period = 'QTD' then '3. QTD'
+			when period = 'FYTD' then '4. FYTD'
+			when period = '4Y+FYTD' then '5. 4Y+FYTD'
+			when period = '5Y' then '6. 5Y'
+		  end period_sorted
+	from
+		cmb
+	where
+		value is not null
+		and business_date >= cast( '2019-04-01' as date )
+		and not ( pbor_node_name in ( 'Active Equities', 'Capital Markets & Factor Investing' ) and metric_type = 'Return' )
+)
+select * from cmb_clean) AS ""finsights_perf_returns_income_daily"""
+8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa,"/* cppi::8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa */
+/* QuickSight 630c16d7-39b4-497a-9542-48ea39b49b3a */
+SELECT ""dataset_id"", ""business_date"", ""pbor_node_name"", ""split_level"", ""metric_type"", ""currency"", ""period"", ""value"", ""business_date_string"", ""period_sorted""
+FROM (with scd_perf as (
+	/* DATA PULLED:
+	 * - Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Department: 1D, MTD, QTD, FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, cast( business_date as date ) as business_date
+		, case 
+			when dataset_id in ( 'TOTALFUND', 'CMBP_NET' ) and split_level = 0 then 'Total Fund'
+			when dataset_id = 'ACCOUNTS_BCPP' and split_level = 0 then 'Base CPP'
+			when dataset_id = 'ACCOUNTS_ACPP' and split_level = 0 then 'Additional CPP'
+			when dataset_id in ( 'ATP_TF', 'ATP_TF_D' ) and split_level = 1 then 'Total Fund Benchmark Portfolio'
+		  	else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  scd.dataset_id 
+			, scd.business_date 
+			, scd.pbor_node_name 
+			, scd.split_level 
+			-- for below, TOTALFUND local values should be not used; CMBP_NET CAD values should not be used
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_reporting_currency end time_weighted_return_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_local_currency end time_weighted_return_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_reporting_currency end time_weighted_return_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_local_currency end time_weighted_return_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_reporting_currency end time_weighted_return_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_local_currency end time_weighted_return_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_reporting_currency end time_weighted_return_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_local_currency end time_weighted_return_fiscal_year_to_date_local_currency
+			, perf.time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, perf.time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_reporting_currency end time_weighted_return_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_local_currency end time_weighted_return_5year_roll_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_reporting_currency end pnl_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_local_currency end pnl_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_month_to_date_reporting_currency end pnl_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_month_to_date_local_currency end pnl_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_reporting_currency end pnl_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_local_currency end pnl_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_reporting_currency end pnl_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_local_currency end pnl_fiscal_year_to_date_local_currency
+			, perf.pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, perf.pnl_4yp_lc as pnl_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_5year_roll_reporting_currency end pnl_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_5year_roll_local_currency end pnl_5year_roll_local_currency
+			, scd.last_update
+		from 
+			/* scd_performance_bottom_up:
+			 * - Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 5Y
+			 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Department: 1D, MTD, QTD, FYTD, 5Y
+			 */
+			performance.scd_performance_bottom_up scd
+		left join (
+			/* perf_bottom_up_monthly:
+			 * - Total Fund: 4Y+FYTD
+			 * - Total Fund bCPP/aCPP: 4Y+FYTD
+			 */
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else time_weighted_return_4yp_lc end time_weighted_return_4yp_lc /* TOTALFUND local should not be used */
+				, pnl_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else pnl_4yp_lc end pnl_4yp_lc /* TOTALFUND local should not be used */
+			from
+				performance.perf_bottom_up_monthly 
+			where 
+				/* TOTAL FUND */
+				(
+					dataset_id in ( 'TOTALFUND_D' )
+					and ""level"" = 0
+					and periods_per_year = 365
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					dataset_id in ( 'ACCOUNTS_BCPP_D', 'ACCOUNTS_ACPP_D' )
+					and ""level"" = 0 
+					and periods_per_year = 365
+				)
+			/* perf_top_down_monthly:
+			 * - Benchmark Portfolio Total Fund: 4Y+FYTD
+			 */
+			union all
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, time_weighted_return_4yp_lc
+				, pnl_4yp_rc
+				, pnl_4yp_lc
+			from
+				performance.perf_top_down_monthly 
+			where 
+				periods_per_year = 365
+				and dataset_id = 'ATP_TF_D'
+		) perf
+		on
+			scd.business_date = cast( perf.business_date as varchar )
+			and scd.dataset_id = perf.dataset_id
+			and scd.pbor_node_name = perf.node_name
+			and scd.split_level = perf.""level""
+		where 
+			scd.periods_per_year = '365'
+			and (
+				/* TOTAL FUND */
+				(
+					scd.dataset_id in ( 'TOTALFUND', 'CMBP_NET' )
+					and scd.split_level = 0
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					scd.dataset_id in ( 'ACCOUNTS_BCPP', 'ACCOUNTS_ACPP' )
+					and scd.split_level = 0 
+				)
+				/* BENCHMARK PORTFOLIO */
+				or (
+					scd.dataset_id in ( 'ATP_TF' )
+					and scd.split_level = 1
+				)
+				/* DEPARTMENTS */
+				or (
+					scd.dataset_id in ( 'CMBP_NET' )
+					and scd.split_level = 2
+					and scd.pbor_parent_node_id = 2
+				)
+			)
+	) scd_perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_month_to_date_reporting_currency'
+			, 'time_weighted_return_month_to_date_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_month_to_date_reporting_currency'
+			, 'pnl_month_to_date_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_month_to_date_reporting_currency
+			, time_weighted_return_month_to_date_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_month_to_date_reporting_currency
+			, pnl_month_to_date_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) scd_perf_unpivot ( metric, value )
+), perf as (
+	/* DATA PULLED:
+	 * - Benchmark Portfolio bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) Total Fund: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, business_date
+		, case
+			when dataset_id = 'ATP_BCPP_D' then 'Base CPP Benchmark Portfolio'
+			when dataset_id = 'ATP_ACPP_D' then 'Additional CPP Benchmark Portfolio'
+			when dataset_id = 'INV_SELECT_TF_D' then 'Total Fund Value-Added'
+			when dataset_id = 'INV_SELECT_BCPPD' then 'Base CPP Value-Added'
+			when dataset_id = 'INV_SELECT_ACPPD' then 'Additional CPP Value-Added'
+			else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  dataset_id
+			, business_date
+			, node_name as pbor_node_name
+			, ""level"" as split_level
+			, time_weighted_return_rc as time_weighted_return_reporting_currency
+			, time_weighted_return_lc as time_weighted_return_local_currency
+			, time_weighted_return_qtd_rc as time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_qtd_lc as time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fytd_rc as time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fytd_lc as time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5y_roll_rc as time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5y_roll_lc as time_weighted_return_5year_roll_local_currency
+			, pnl_rc as pnl_reporting_currency
+			, pnl_lc as pnl_local_currency
+			, pnl_qtd_rc as pnl_quarter_to_date_reporting_currency
+			, pnl_qtd_lc as pnl_quarter_to_date_local_currency
+			, pnl_fytd_rc as pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fytd_lc as pnl_fiscal_year_to_date_local_currency
+			, pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, pnl_4yp_lc as pnl_4year_plus_local_currency
+			, pnl_5y_roll_rc as pnl_5year_roll_reporting_currency
+			, pnl_5y_roll_lc as pnl_5year_roll_local_currency
+		from
+			performance.perf_top_down_monthly 
+		where 
+			dataset_id in ( 'ATP_BCPP_D', 'ATP_ACPP_D', 'INV_SELECT_TF_D', 'INV_SELECT_ACPPD', 'INV_SELECT_BCPPD' )
+			and ""level"" = 1
+	) perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) perf_unpivot ( metric, value )
+), cmb as (
+	select * from scd_perf
+	union all
+	select * from perf
+), cmb_clean as (
+	select
+		cmb.*
+		, cast( business_date as varchar ) as business_date_string
+		, case
+			when period = '1D' then '1. 1-Day'
+			when period = 'MTD' then '2. MTD'
+			when period = 'QTD' then '3. QTD'
+			when period = 'FYTD' then '4. FYTD'
+			when period = '4Y+FYTD' then '5. 4Y+FYTD'
+			when period = '5Y' then '6. 5Y'
+		  end period_sorted
+	from
+		cmb
+	where
+		value is not null
+		and business_date >= cast( '2019-04-01' as date )
+		and not ( pbor_node_name in ( 'Active Equities', 'Capital Markets & Factor Investing' ) and metric_type = 'Return' )
+)
+select * from cmb_clean) AS ""finsights_perf_returns_income_daily"""
+8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa,"/* cppi::8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa */
+/* QuickSight 630c16d7-39b4-497a-9542-48ea39b49b3a */
+SELECT ""dataset_id"", ""business_date"", ""pbor_node_name"", ""split_level"", ""metric_type"", ""currency"", ""period"", ""value"", ""business_date_string"", ""period_sorted""
+FROM (with scd_perf as (
+	/* DATA PULLED:
+	 * - Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Department: 1D, MTD, QTD, FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, cast( business_date as date ) as business_date
+		, case 
+			when dataset_id in ( 'TOTALFUND', 'CMBP_NET' ) and split_level = 0 then 'Total Fund'
+			when dataset_id = 'ACCOUNTS_BCPP' and split_level = 0 then 'Base CPP'
+			when dataset_id = 'ACCOUNTS_ACPP' and split_level = 0 then 'Additional CPP'
+			when dataset_id in ( 'ATP_TF', 'ATP_TF_D' ) and split_level = 1 then 'Total Fund Benchmark Portfolio'
+		  	else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  scd.dataset_id 
+			, scd.business_date 
+			, scd.pbor_node_name 
+			, scd.split_level 
+			-- for below, TOTALFUND local values should be not used; CMBP_NET CAD values should not be used
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_reporting_currency end time_weighted_return_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_local_currency end time_weighted_return_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_reporting_currency end time_weighted_return_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_local_currency end time_weighted_return_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_reporting_currency end time_weighted_return_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_local_currency end time_weighted_return_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_reporting_currency end time_weighted_return_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_local_currency end time_weighted_return_fiscal_year_to_date_local_currency
+			, perf.time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, perf.time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_reporting_currency end time_weighted_return_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_local_currency end time_weighted_return_5year_roll_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_reporting_currency end pnl_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_local_currency end pnl_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_month_to_date_reporting_currency end pnl_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_month_to_date_local_currency end pnl_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_reporting_currency end pnl_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_local_currency end pnl_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_reporting_currency end pnl_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_local_currency end pnl_fiscal_year_to_date_local_currency
+			, perf.pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, perf.pnl_4yp_lc as pnl_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_5year_roll_reporting_currency end pnl_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_5year_roll_local_currency end pnl_5year_roll_local_currency
+			, scd.last_update
+		from 
+			/* scd_performance_bottom_up:
+			 * - Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 5Y
+			 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Department: 1D, MTD, QTD, FYTD, 5Y
+			 */
+			performance.scd_performance_bottom_up scd
+		left join (
+			/* perf_bottom_up_monthly:
+			 * - Total Fund: 4Y+FYTD
+			 * - Total Fund bCPP/aCPP: 4Y+FYTD
+			 */
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else time_weighted_return_4yp_lc end time_weighted_return_4yp_lc /* TOTALFUND local should not be used */
+				, pnl_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else pnl_4yp_lc end pnl_4yp_lc /* TOTALFUND local should not be used */
+			from
+				performance.perf_bottom_up_monthly 
+			where 
+				/* TOTAL FUND */
+				(
+					dataset_id in ( 'TOTALFUND_D' )
+					and ""level"" = 0
+					and periods_per_year = 365
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					dataset_id in ( 'ACCOUNTS_BCPP_D', 'ACCOUNTS_ACPP_D' )
+					and ""level"" = 0 
+					and periods_per_year = 365
+				)
+			/* perf_top_down_monthly:
+			 * - Benchmark Portfolio Total Fund: 4Y+FYTD
+			 */
+			union all
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, time_weighted_return_4yp_lc
+				, pnl_4yp_rc
+				, pnl_4yp_lc
+			from
+				performance.perf_top_down_monthly 
+			where 
+				periods_per_year = 365
+				and dataset_id = 'ATP_TF_D'
+		) perf
+		on
+			scd.business_date = cast( perf.business_date as varchar )
+			and scd.dataset_id = perf.dataset_id
+			and scd.pbor_node_name = perf.node_name
+			and scd.split_level = perf.""level""
+		where 
+			scd.periods_per_year = '365'
+			and (
+				/* TOTAL FUND */
+				(
+					scd.dataset_id in ( 'TOTALFUND', 'CMBP_NET' )
+					and scd.split_level = 0
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					scd.dataset_id in ( 'ACCOUNTS_BCPP', 'ACCOUNTS_ACPP' )
+					and scd.split_level = 0 
+				)
+				/* BENCHMARK PORTFOLIO */
+				or (
+					scd.dataset_id in ( 'ATP_TF' )
+					and scd.split_level = 1
+				)
+				/* DEPARTMENTS */
+				or (
+					scd.dataset_id in ( 'CMBP_NET' )
+					and scd.split_level = 2
+					and scd.pbor_parent_node_id = 2
+				)
+			)
+	) scd_perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_month_to_date_reporting_currency'
+			, 'time_weighted_return_month_to_date_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_month_to_date_reporting_currency'
+			, 'pnl_month_to_date_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_month_to_date_reporting_currency
+			, time_weighted_return_month_to_date_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_month_to_date_reporting_currency
+			, pnl_month_to_date_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) scd_perf_unpivot ( metric, value )
+), perf as (
+	/* DATA PULLED:
+	 * - Benchmark Portfolio bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) Total Fund: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, business_date
+		, case
+			when dataset_id = 'ATP_BCPP_D' then 'Base CPP Benchmark Portfolio'
+			when dataset_id = 'ATP_ACPP_D' then 'Additional CPP Benchmark Portfolio'
+			when dataset_id = 'INV_SELECT_TF_D' then 'Total Fund Value-Added'
+			when dataset_id = 'INV_SELECT_BCPPD' then 'Base CPP Value-Added'
+			when dataset_id = 'INV_SELECT_ACPPD' then 'Additional CPP Value-Added'
+			else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  dataset_id
+			, business_date
+			, node_name as pbor_node_name
+			, ""level"" as split_level
+			, time_weighted_return_rc as time_weighted_return_reporting_currency
+			, time_weighted_return_lc as time_weighted_return_local_currency
+			, time_weighted_return_qtd_rc as time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_qtd_lc as time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fytd_rc as time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fytd_lc as time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5y_roll_rc as time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5y_roll_lc as time_weighted_return_5year_roll_local_currency
+			, pnl_rc as pnl_reporting_currency
+			, pnl_lc as pnl_local_currency
+			, pnl_qtd_rc as pnl_quarter_to_date_reporting_currency
+			, pnl_qtd_lc as pnl_quarter_to_date_local_currency
+			, pnl_fytd_rc as pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fytd_lc as pnl_fiscal_year_to_date_local_currency
+			, pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, pnl_4yp_lc as pnl_4year_plus_local_currency
+			, pnl_5y_roll_rc as pnl_5year_roll_reporting_currency
+			, pnl_5y_roll_lc as pnl_5year_roll_local_currency
+		from
+			performance.perf_top_down_monthly 
+		where 
+			dataset_id in ( 'ATP_BCPP_D', 'ATP_ACPP_D', 'INV_SELECT_TF_D', 'INV_SELECT_ACPPD', 'INV_SELECT_BCPPD' )
+			and ""level"" = 1
+	) perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) perf_unpivot ( metric, value )
+), cmb as (
+	select * from scd_perf
+	union all
+	select * from perf
+), cmb_clean as (
+	select
+		cmb.*
+		, cast( business_date as varchar ) as business_date_string
+		, case
+			when period = '1D' then '1. 1-Day'
+			when period = 'MTD' then '2. MTD'
+			when period = 'QTD' then '3. QTD'
+			when period = 'FYTD' then '4. FYTD'
+			when period = '4Y+FYTD' then '5. 4Y+FYTD'
+			when period = '5Y' then '6. 5Y'
+		  end period_sorted
+	from
+		cmb
+	where
+		value is not null
+		and business_date >= cast( '2019-04-01' as date )
+		and not ( pbor_node_name in ( 'Active Equities', 'Capital Markets & Factor Investing' ) and metric_type = 'Return' )
+)
+select * from cmb_clean) AS ""finsights_perf_returns_income_daily"""
+8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa,"/* cppi::8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa */
+/* QuickSight 630c16d7-39b4-497a-9542-48ea39b49b3a */
+SELECT ""dataset_id"", ""business_date"", ""pbor_node_name"", ""split_level"", ""metric_type"", ""currency"", ""period"", ""value"", ""business_date_string"", ""period_sorted""
+FROM (with scd_perf as (
+	/* DATA PULLED:
+	 * - Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Department: 1D, MTD, QTD, FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, cast( business_date as date ) as business_date
+		, case 
+			when dataset_id in ( 'TOTALFUND', 'CMBP_NET' ) and split_level = 0 then 'Total Fund'
+			when dataset_id = 'ACCOUNTS_BCPP' and split_level = 0 then 'Base CPP'
+			when dataset_id = 'ACCOUNTS_ACPP' and split_level = 0 then 'Additional CPP'
+			when dataset_id in ( 'ATP_TF', 'ATP_TF_D' ) and split_level = 1 then 'Total Fund Benchmark Portfolio'
+		  	else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  scd.dataset_id 
+			, scd.business_date 
+			, scd.pbor_node_name 
+			, scd.split_level 
+			-- for below, TOTALFUND local values should be not used; CMBP_NET CAD values should not be used
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_reporting_currency end time_weighted_return_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_local_currency end time_weighted_return_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_reporting_currency end time_weighted_return_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_local_currency end time_weighted_return_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_reporting_currency end time_weighted_return_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_local_currency end time_weighted_return_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_reporting_currency end time_weighted_return_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_local_currency end time_weighted_return_fiscal_year_to_date_local_currency
+			, perf.time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, perf.time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_reporting_currency end time_weighted_return_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_local_currency end time_weighted_return_5year_roll_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_reporting_currency end pnl_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_local_currency end pnl_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_month_to_date_reporting_currency end pnl_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_month_to_date_local_currency end pnl_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_reporting_currency end pnl_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_local_currency end pnl_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_reporting_currency end pnl_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_local_currency end pnl_fiscal_year_to_date_local_currency
+			, perf.pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, perf.pnl_4yp_lc as pnl_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_5year_roll_reporting_currency end pnl_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_5year_roll_local_currency end pnl_5year_roll_local_currency
+			, scd.last_update
+		from 
+			/* scd_performance_bottom_up:
+			 * - Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 5Y
+			 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Department: 1D, MTD, QTD, FYTD, 5Y
+			 */
+			performance.scd_performance_bottom_up scd
+		left join (
+			/* perf_bottom_up_monthly:
+			 * - Total Fund: 4Y+FYTD
+			 * - Total Fund bCPP/aCPP: 4Y+FYTD
+			 */
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else time_weighted_return_4yp_lc end time_weighted_return_4yp_lc /* TOTALFUND local should not be used */
+				, pnl_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else pnl_4yp_lc end pnl_4yp_lc /* TOTALFUND local should not be used */
+			from
+				performance.perf_bottom_up_monthly 
+			where 
+				/* TOTAL FUND */
+				(
+					dataset_id in ( 'TOTALFUND_D' )
+					and ""level"" = 0
+					and periods_per_year = 365
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					dataset_id in ( 'ACCOUNTS_BCPP_D', 'ACCOUNTS_ACPP_D' )
+					and ""level"" = 0 
+					and periods_per_year = 365
+				)
+			/* perf_top_down_monthly:
+			 * - Benchmark Portfolio Total Fund: 4Y+FYTD
+			 */
+			union all
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, time_weighted_return_4yp_lc
+				, pnl_4yp_rc
+				, pnl_4yp_lc
+			from
+				performance.perf_top_down_monthly 
+			where 
+				periods_per_year = 365
+				and dataset_id = 'ATP_TF_D'
+		) perf
+		on
+			scd.business_date = cast( perf.business_date as varchar )
+			and scd.dataset_id = perf.dataset_id
+			and scd.pbor_node_name = perf.node_name
+			and scd.split_level = perf.""level""
+		where 
+			scd.periods_per_year = '365'
+			and (
+				/* TOTAL FUND */
+				(
+					scd.dataset_id in ( 'TOTALFUND', 'CMBP_NET' )
+					and scd.split_level = 0
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					scd.dataset_id in ( 'ACCOUNTS_BCPP', 'ACCOUNTS_ACPP' )
+					and scd.split_level = 0 
+				)
+				/* BENCHMARK PORTFOLIO */
+				or (
+					scd.dataset_id in ( 'ATP_TF' )
+					and scd.split_level = 1
+				)
+				/* DEPARTMENTS */
+				or (
+					scd.dataset_id in ( 'CMBP_NET' )
+					and scd.split_level = 2
+					and scd.pbor_parent_node_id = 2
+				)
+			)
+	) scd_perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_month_to_date_reporting_currency'
+			, 'time_weighted_return_month_to_date_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_month_to_date_reporting_currency'
+			, 'pnl_month_to_date_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_month_to_date_reporting_currency
+			, time_weighted_return_month_to_date_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_month_to_date_reporting_currency
+			, pnl_month_to_date_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) scd_perf_unpivot ( metric, value )
+), perf as (
+	/* DATA PULLED:
+	 * - Benchmark Portfolio bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) Total Fund: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, business_date
+		, case
+			when dataset_id = 'ATP_BCPP_D' then 'Base CPP Benchmark Portfolio'
+			when dataset_id = 'ATP_ACPP_D' then 'Additional CPP Benchmark Portfolio'
+			when dataset_id = 'INV_SELECT_TF_D' then 'Total Fund Value-Added'
+			when dataset_id = 'INV_SELECT_BCPPD' then 'Base CPP Value-Added'
+			when dataset_id = 'INV_SELECT_ACPPD' then 'Additional CPP Value-Added'
+			else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  dataset_id
+			, business_date
+			, node_name as pbor_node_name
+			, ""level"" as split_level
+			, time_weighted_return_rc as time_weighted_return_reporting_currency
+			, time_weighted_return_lc as time_weighted_return_local_currency
+			, time_weighted_return_qtd_rc as time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_qtd_lc as time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fytd_rc as time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fytd_lc as time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5y_roll_rc as time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5y_roll_lc as time_weighted_return_5year_roll_local_currency
+			, pnl_rc as pnl_reporting_currency
+			, pnl_lc as pnl_local_currency
+			, pnl_qtd_rc as pnl_quarter_to_date_reporting_currency
+			, pnl_qtd_lc as pnl_quarter_to_date_local_currency
+			, pnl_fytd_rc as pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fytd_lc as pnl_fiscal_year_to_date_local_currency
+			, pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, pnl_4yp_lc as pnl_4year_plus_local_currency
+			, pnl_5y_roll_rc as pnl_5year_roll_reporting_currency
+			, pnl_5y_roll_lc as pnl_5year_roll_local_currency
+		from
+			performance.perf_top_down_monthly 
+		where 
+			dataset_id in ( 'ATP_BCPP_D', 'ATP_ACPP_D', 'INV_SELECT_TF_D', 'INV_SELECT_ACPPD', 'INV_SELECT_BCPPD' )
+			and ""level"" = 1
+	) perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) perf_unpivot ( metric, value )
+), cmb as (
+	select * from scd_perf
+	union all
+	select * from perf
+), cmb_clean as (
+	select
+		cmb.*
+		, cast( business_date as varchar ) as business_date_string
+		, case
+			when period = '1D' then '1. 1-Day'
+			when period = 'MTD' then '2. MTD'
+			when period = 'QTD' then '3. QTD'
+			when period = 'FYTD' then '4. FYTD'
+			when period = '4Y+FYTD' then '5. 4Y+FYTD'
+			when period = '5Y' then '6. 5Y'
+		  end period_sorted
+	from
+		cmb
+	where
+		value is not null
+		and business_date >= cast( '2019-04-01' as date )
+		and not ( pbor_node_name in ( 'Active Equities', 'Capital Markets & Factor Investing' ) and metric_type = 'Return' )
+)
+select * from cmb_clean) AS ""finsights_perf_returns_income_daily"""
+8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa,"/* cppi::8589f6ce7aa7e308e13867f6e80fbb32f9da4b3d364bc34328aa41691b2417aa */
+/* QuickSight 630c16d7-39b4-497a-9542-48ea39b49b3a */
+SELECT ""dataset_id"", ""business_date"", ""pbor_node_name"", ""split_level"", ""metric_type"", ""currency"", ""period"", ""value"", ""business_date_string"", ""period_sorted""
+FROM (with scd_perf as (
+	/* DATA PULLED:
+	 * - Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Department: 1D, MTD, QTD, FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, cast( business_date as date ) as business_date
+		, case 
+			when dataset_id in ( 'TOTALFUND', 'CMBP_NET' ) and split_level = 0 then 'Total Fund'
+			when dataset_id = 'ACCOUNTS_BCPP' and split_level = 0 then 'Base CPP'
+			when dataset_id = 'ACCOUNTS_ACPP' and split_level = 0 then 'Additional CPP'
+			when dataset_id in ( 'ATP_TF', 'ATP_TF_D' ) and split_level = 1 then 'Total Fund Benchmark Portfolio'
+		  	else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  scd.dataset_id 
+			, scd.business_date 
+			, scd.pbor_node_name 
+			, scd.split_level 
+			-- for below, TOTALFUND local values should be not used; CMBP_NET CAD values should not be used
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_reporting_currency end time_weighted_return_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_local_currency end time_weighted_return_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_reporting_currency end time_weighted_return_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_month_to_date_local_currency end time_weighted_return_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_reporting_currency end time_weighted_return_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_quarter_to_date_local_currency end time_weighted_return_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_reporting_currency end time_weighted_return_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_fiscal_year_to_date_local_currency end time_weighted_return_fiscal_year_to_date_local_currency
+			, perf.time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, perf.time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_reporting_currency end time_weighted_return_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.time_weighted_return_5year_roll_local_currency end time_weighted_return_5year_roll_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_reporting_currency end pnl_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_local_currency end pnl_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_month_to_date_reporting_currency end pnl_month_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_month_to_date_local_currency end pnl_month_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_reporting_currency end pnl_quarter_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_quarter_to_date_local_currency end pnl_quarter_to_date_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_reporting_currency end pnl_fiscal_year_to_date_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_fiscal_year_to_date_local_currency end pnl_fiscal_year_to_date_local_currency
+			, perf.pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, perf.pnl_4yp_lc as pnl_4year_plus_local_currency
+			, case when scd.dataset_id = 'CMBP_NET' and scd.split_level = 0 then null else scd.pnl_5year_roll_reporting_currency end pnl_5year_roll_reporting_currency
+			, case when scd.dataset_id = 'TOTALFUND' and scd.split_level = 0 then null else scd.pnl_5year_roll_local_currency end pnl_5year_roll_local_currency
+			, scd.last_update
+		from 
+			/* scd_performance_bottom_up:
+			 * - Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Total Fund bCPP/aCPP: 1D, MTD, QTD, FYTD, 5Y
+			 * - Benchmark Portfolio Total Fund: 1D, MTD, QTD, FYTD, 5Y
+			 * - Department: 1D, MTD, QTD, FYTD, 5Y
+			 */
+			performance.scd_performance_bottom_up scd
+		left join (
+			/* perf_bottom_up_monthly:
+			 * - Total Fund: 4Y+FYTD
+			 * - Total Fund bCPP/aCPP: 4Y+FYTD
+			 */
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else time_weighted_return_4yp_lc end time_weighted_return_4yp_lc /* TOTALFUND local should not be used */
+				, pnl_4yp_rc
+				, case when dataset_id = 'TOTALFUND_D' then null else pnl_4yp_lc end pnl_4yp_lc /* TOTALFUND local should not be used */
+			from
+				performance.perf_bottom_up_monthly 
+			where 
+				/* TOTAL FUND */
+				(
+					dataset_id in ( 'TOTALFUND_D' )
+					and ""level"" = 0
+					and periods_per_year = 365
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					dataset_id in ( 'ACCOUNTS_BCPP_D', 'ACCOUNTS_ACPP_D' )
+					and ""level"" = 0 
+					and periods_per_year = 365
+				)
+			/* perf_top_down_monthly:
+			 * - Benchmark Portfolio Total Fund: 4Y+FYTD
+			 */
+			union all
+			select
+				  replace( dataset_id, '_D', '' ) as dataset_id 
+				, business_date 
+				, node_name 
+				, ""level"" 
+				, time_weighted_return_4yp_rc
+				, time_weighted_return_4yp_lc
+				, pnl_4yp_rc
+				, pnl_4yp_lc
+			from
+				performance.perf_top_down_monthly 
+			where 
+				periods_per_year = 365
+				and dataset_id = 'ATP_TF_D'
+		) perf
+		on
+			scd.business_date = cast( perf.business_date as varchar )
+			and scd.dataset_id = perf.dataset_id
+			and scd.pbor_node_name = perf.node_name
+			and scd.split_level = perf.""level""
+		where 
+			scd.periods_per_year = '365'
+			and (
+				/* TOTAL FUND */
+				(
+					scd.dataset_id in ( 'TOTALFUND', 'CMBP_NET' )
+					and scd.split_level = 0
+				)
+				/* TOTAL FUND ACCOUNTS */
+				or (
+					scd.dataset_id in ( 'ACCOUNTS_BCPP', 'ACCOUNTS_ACPP' )
+					and scd.split_level = 0 
+				)
+				/* BENCHMARK PORTFOLIO */
+				or (
+					scd.dataset_id in ( 'ATP_TF' )
+					and scd.split_level = 1
+				)
+				/* DEPARTMENTS */
+				or (
+					scd.dataset_id in ( 'CMBP_NET' )
+					and scd.split_level = 2
+					and scd.pbor_parent_node_id = 2
+				)
+			)
+	) scd_perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_month_to_date_reporting_currency'
+			, 'time_weighted_return_month_to_date_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_month_to_date_reporting_currency'
+			, 'pnl_month_to_date_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_month_to_date_reporting_currency
+			, time_weighted_return_month_to_date_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_month_to_date_reporting_currency
+			, pnl_month_to_date_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) scd_perf_unpivot ( metric, value )
+), perf as (
+	/* DATA PULLED:
+	 * - Benchmark Portfolio bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) Total Fund: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 * - Value-Added (IP-BP) bCPP/aCPP: 1D, QTD, FYTD, 4Y+FYTD, 5Y
+	 */
+	select
+		  dataset_id
+		, business_date
+		, case
+			when dataset_id = 'ATP_BCPP_D' then 'Base CPP Benchmark Portfolio'
+			when dataset_id = 'ATP_ACPP_D' then 'Additional CPP Benchmark Portfolio'
+			when dataset_id = 'INV_SELECT_TF_D' then 'Total Fund Value-Added'
+			when dataset_id = 'INV_SELECT_BCPPD' then 'Base CPP Value-Added'
+			when dataset_id = 'INV_SELECT_ACPPD' then 'Additional CPP Value-Added'
+			else pbor_node_name
+		  end pbor_node_name
+		, split_level
+		, case
+			when metric like 'time_weighted_return_%' then 'Return'
+			when metric like 'pnl_%' then 'Income'
+		  end metric_type
+		, case
+			when metric like '%_reporting_currency' then 'CAD'
+			when metric like '%_local_currency' then 'Local'
+		  end currency
+		, case
+			when metric like '%month_to_date%' then 'MTD'
+			when metric like '%quarter_to_date%' then 'QTD'
+			when metric like '%fiscal_year_to_date%' then 'FYTD'
+			when metric like '%4year_plus%' then '4Y+FYTD'
+			when metric like '%5year_roll%' then '5Y'
+			else '1D'
+		  end period
+		, value
+	from (
+		select
+			  dataset_id
+			, business_date
+			, node_name as pbor_node_name
+			, ""level"" as split_level
+			, time_weighted_return_rc as time_weighted_return_reporting_currency
+			, time_weighted_return_lc as time_weighted_return_local_currency
+			, time_weighted_return_qtd_rc as time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_qtd_lc as time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fytd_rc as time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fytd_lc as time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4yp_rc as time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4yp_lc as time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5y_roll_rc as time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5y_roll_lc as time_weighted_return_5year_roll_local_currency
+			, pnl_rc as pnl_reporting_currency
+			, pnl_lc as pnl_local_currency
+			, pnl_qtd_rc as pnl_quarter_to_date_reporting_currency
+			, pnl_qtd_lc as pnl_quarter_to_date_local_currency
+			, pnl_fytd_rc as pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fytd_lc as pnl_fiscal_year_to_date_local_currency
+			, pnl_4yp_rc as pnl_4year_plus_reporting_currency
+			, pnl_4yp_lc as pnl_4year_plus_local_currency
+			, pnl_5y_roll_rc as pnl_5year_roll_reporting_currency
+			, pnl_5y_roll_lc as pnl_5year_roll_local_currency
+		from
+			performance.perf_top_down_monthly 
+		where 
+			dataset_id in ( 'ATP_BCPP_D', 'ATP_ACPP_D', 'INV_SELECT_TF_D', 'INV_SELECT_ACPPD', 'INV_SELECT_BCPPD' )
+			and ""level"" = 1
+	) perf_pivot
+	cross join unnest (
+		/* METRIC */
+		array[
+		  	  'time_weighted_return_reporting_currency' 
+			, 'time_weighted_return_local_currency'
+			, 'time_weighted_return_quarter_to_date_reporting_currency'
+			, 'time_weighted_return_quarter_to_date_local_currency'
+			, 'time_weighted_return_fiscal_year_to_date_reporting_currency'
+			, 'time_weighted_return_fiscal_year_to_date_local_currency'
+			, 'time_weighted_return_4year_plus_reporting_currency'
+			, 'time_weighted_return_4year_plus_local_currency'
+			, 'time_weighted_return_5year_roll_reporting_currency'
+			, 'time_weighted_return_5year_roll_local_currency'
+			, 'pnl_reporting_currency'
+			, 'pnl_local_currency'
+			, 'pnl_quarter_to_date_reporting_currency'
+			, 'pnl_quarter_to_date_local_currency'
+			, 'pnl_fiscal_year_to_date_reporting_currency'
+			, 'pnl_fiscal_year_to_date_local_currency'
+			, 'pnl_4year_plus_reporting_currency'
+			, 'pnl_4year_plus_local_currency'
+			, 'pnl_5year_roll_reporting_currency'
+			, 'pnl_5year_roll_local_currency'
+		  ]
+		/* VALUE */
+		, array[
+			  time_weighted_return_reporting_currency 
+			, time_weighted_return_local_currency
+			, time_weighted_return_quarter_to_date_reporting_currency
+			, time_weighted_return_quarter_to_date_local_currency
+			, time_weighted_return_fiscal_year_to_date_reporting_currency
+			, time_weighted_return_fiscal_year_to_date_local_currency
+			, time_weighted_return_4year_plus_reporting_currency
+			, time_weighted_return_4year_plus_local_currency
+			, time_weighted_return_5year_roll_reporting_currency
+			, time_weighted_return_5year_roll_local_currency
+			, pnl_reporting_currency
+			, pnl_local_currency
+			, pnl_quarter_to_date_reporting_currency
+			, pnl_quarter_to_date_local_currency
+			, pnl_fiscal_year_to_date_reporting_currency
+			, pnl_fiscal_year_to_date_local_currency
+			, pnl_4year_plus_reporting_currency
+			, pnl_4year_plus_local_currency
+			, pnl_5year_roll_reporting_currency
+			, pnl_5year_roll_local_currency
+		  ]
+	) perf_unpivot ( metric, value )
+), cmb as (
+	select * from scd_perf
+	union all
+	select * from perf
+), cmb_clean as (
+	select
+		cmb.*
+		, cast( business_date as varchar ) as business_date_string
+		, case
+			when period = '1D' then '1. 1-Day'
+			when period = 'MTD' then '2. MTD'
+			when period = 'QTD' then '3. QTD'
+			when period = 'FYTD' then '4. FYTD'
+			when period = '4Y+FYTD' then '5. 4Y+FYTD'
+			when period = '5Y' then '6. 5Y'
+		  end period_sorted
+	from
+		cmb
+	where
+		value is not null
+		and business_date >= cast( '2019-04-01' as date )
+		and not ( pbor_node_name in ( 'Active Equities', 'Capital Markets & Factor Investing' ) and metric_type = 'Return' )
+)
+select * from cmb_clean) AS ""finsights_perf_returns_income_daily"""
+b1089e4f79d2bd2bc4ceecc24007c9f751f67ea243b3f06f2f3e4e483809c6b3,"/* cppi::b1089e4f79d2bd2bc4ceecc24007c9f751f67ea243b3f06f2f3e4e483809c6b3 */
+select distinct cppib_party_id, rating_value as rating
+from radar_reporting_dev.cppib_party_rating
+where business_date = '2025-06-16'
+and rating_agency = 'CPPIB'"
+ce880ec373ae389dd5fa64db2af77f2a3f2a1ecc865700361c9b4d0f936a695b,"/* cppi::ce880ec373ae389dd5fa64db2af77f2a3f2a1ecc865700361c9b4d0f936a695b */
+SELECT pricing_date, security_id as cppib_sec_id, daily_return
+FROM market.cppib_market_equity_prices
+WHERE pricing_date > DATE_ADD('year', -1, date'2022-06-27') and pricing_date <= date'2025-06-18'
+AND pricing_date >= date'2022-04-01'
+AND is_suspended_flag = 0 AND is_exchange_holiday = 0
+and security_id in (19451, 28645795, 24801014, 21406278, 1634, 1322, 219443, 1615, 1603, 21580468, 1642, 4441, 1640, 19317087, 1390, 11294, 1393, 7499, 1575, 6749, 212350, 1620, 12284, 1492, 517609, 1638, 5374, 24475617, 13407285, 4398, 5949, 4457, 914, 5085, 16681808, 2940, 1648, 22211989, 16784545, 213755, 179843, 19553149, 183072, 6763, 4371, 1289, 284, 12798, 21548760, 19042657, 8253, 8530, 24012357, 8269, 19542885, 958, 11386, 570943, 6804, 19397369, 8075, 19383085, 133, 1632, 1301, 24339608, 24377546, 4316, 21550774, 7495, 6768, 5359, 6796, 20237676, 4427, 9558, 565708, 24624594, 25884907, 27042019, 578585, 27126534, 598064, 598568, 8678, 22680346, 517262)"
+0703e8434d42ff28d9317a5f60423704a8fb6585db6d3bec144c7c84f916348e,"/* cppi::0703e8434d42ff28d9317a5f60423704a8fb6585db6d3bec144c7c84f916348e */
+-- Athena JDBC driver connection test
+SELECT 1"
+29598df1cdb91341b3e49e9cbc164726dc9a477b9d2982815ac490709af73467,"/* cppi::29598df1cdb91341b3e49e9cbc164726dc9a477b9d2982815ac490709af73467 */
+/* QuickSight 0ec0ebb3-64d8-417d-94f4-09f88ce898e9 */
+SELECT ""business_date"", ""vendor"", ""base_currency"", ""to_currency"", ""is_exchange_holiday_flag"", ""exchange_rate""
+FROM (with original_data as (
+	select
+		  data_date as business_date
+		, vendor
+		, 'CAD' as base_currency
+		, currency as to_currency
+		, is_exchange_holiday_flag
+		, exchange_rate
+	from
+		market.cppib_market_exchange_rate_cad
+	where
+		currency != 'CAD'
+), inverse_data as (
+	select
+		  data_date as business_date
+		, vendor
+		, currency as base_currency
+		, 'CAD' as to_currency
+		, is_exchange_holiday_flag
+		, 1 / exchange_rate as exchange_rate
+	from
+		market.cppib_market_exchange_rate_cad
+	where
+		currency != 'CAD'
+), combined_data_clean as (
+	select *
+	from (
+		select * from original_data
+		union all
+		select * from inverse_data
+	)
+	where exchange_rate is not null 
+)
+select * from combined_data_clean) AS ""finsights_markets_fx_cad"""
+7b6991695383b464e04c7c7a88d6c1d2ae89af51c5fa64f4684ca03202a856ba,"/* cppi::7b6991695383b464e04c7c7a88d6c1d2ae89af51c5fa64f4684ca03202a856ba */
+select sbl.business_date as report_date, case
+   when ae.bloomberg_ticker_and_exchange is not null then ae.bloomberg_ticker_and_exchange
+   else sbl.underlying_instrument_name
+end as bloomberg_ticker, sbl.current_quantity * sbl.underlying_instrument_lot_size as shares, sbl.trade_id as deal_number, sbl.counterparty_name as counter_party, sbl.loan_account as source_portfolio, case
+  when sbl.deal_type = 'Buy' then 'Long'
+  when sbl.deal_type = 'Sell' then 'Short'
+end as direction, sbl.trading_portfolio as trading_portfolio, sbl.security_settlement_date as settlement_date, case
+  when UPPER(sbl.collateral_type) = 'CASH'
+  then sbl.reference_rate_spread
+else sbl.current_reference_rate end as rate, 1 as dividend, sbl.current_nominal_currency as local_ccy, sbl.current_nominal_currency as settlement_ccy, null as swap_ref, case
+  when sbl.current_nominal_currency = sbl.fx_rate_base_currency then current_nominal * fx_rate_quoted_in_cad
+  else null
+end as notional_cad, sbl.current_nominal as notional_local, abs(sbl.current_quantity) as abs_quantity, null as instrument_name, sbl.id_underlying_instrument as cppib_sec_id, sbl.collateral_type as collateral_type, sbl.custody_account_code as bbg_account,     sbl.id_instrument as murex_contract, a.sedol as sedol, a.isin as isin, p.incorp_country_code as country_code_incorporation, p.risk_country_code as country_code_risk, sbl.instrument_family_name_source as security_type, sbl.underlying_current_price as price_market_close, sbl.maturity_date from trades_deals.security_borrow_lending_collateral_trades sbl left join asset.asset_equity ae on sbl.id_underlying_instrument=cast(ae.cppib_sec_id as varchar) and sbl.business_date = ae.business_date left join asset.asset_security_identifiers a  on sbl.id_underlying_instrument=cast(a.cppib_sec_id as varchar) and sbl.business_date = a.business_date left join party.party p on ae.cppib_party_id = p.cppib_party_id   and ae.business_date=p.business_date where sbl.business_date = date('2025-06-17') and (sbl.current_quantity * sbl.underlying_instrument_lot_size != 0)"
+7b6991695383b464e04c7c7a88d6c1d2ae89af51c5fa64f4684ca03202a856ba,"/* cppi::7b6991695383b464e04c7c7a88d6c1d2ae89af51c5fa64f4684ca03202a856ba */
+select sbl.business_date as report_date, case
+   when ae.bloomberg_ticker_and_exchange is not null then ae.bloomberg_ticker_and_exchange
+   else sbl.underlying_instrument_name
+end as bloomberg_ticker, sbl.current_quantity * sbl.underlying_instrument_lot_size as shares, sbl.trade_id as deal_number, sbl.counterparty_name as counter_party, sbl.loan_account as source_portfolio, case
+  when sbl.deal_type = 'Buy' then 'Long'
+  when sbl.deal_type = 'Sell' then 'Short'
+end as direction, sbl.trading_portfolio as trading_portfolio, sbl.security_settlement_date as settlement_date, case
+  when UPPER(sbl.collateral_type) = 'CASH'
+  then sbl.reference_rate_spread
+else sbl.current_reference_rate end as rate, 1 as dividend, sbl.current_nominal_currency as local_ccy, sbl.current_nominal_currency as settlement_ccy, null as swap_ref, case
+  when sbl.current_nominal_currency = sbl.fx_rate_base_currency then current_nominal * fx_rate_quoted_in_cad
+  else null
+end as notional_cad, sbl.current_nominal as notional_local, abs(sbl.current_quantity) as abs_quantity, null as instrument_name, sbl.id_underlying_instrument as cppib_sec_id, sbl.collateral_type as collateral_type, sbl.custody_account_code as bbg_account,     sbl.id_instrument as murex_contract, a.sedol as sedol, a.isin as isin, p.incorp_country_code as country_code_incorporation, p.risk_country_code as country_code_risk, sbl.instrument_family_name_source as security_type, sbl.underlying_current_price as price_market_close, sbl.maturity_date from trades_deals.security_borrow_lending_collateral_trades sbl left join asset.asset_equity ae on sbl.id_underlying_instrument=cast(ae.cppib_sec_id as varchar) and sbl.business_date = ae.business_date left join asset.asset_security_identifiers a  on sbl.id_underlying_instrument=cast(a.cppib_sec_id as varchar) and sbl.business_date = a.business_date left join party.party p on ae.cppib_party_id = p.cppib_party_id   and ae.business_date=p.business_date where sbl.business_date = date('2025-06-17') and (sbl.current_quantity * sbl.underlying_instrument_lot_size != 0)"
+7b6991695383b464e04c7c7a88d6c1d2ae89af51c5fa64f4684ca03202a856ba,"/* cppi::7b6991695383b464e04c7c7a88d6c1d2ae89af51c5fa64f4684ca03202a856ba */
+select sbl.business_date as report_date, case
+   when ae.bloomberg_ticker_and_exchange is not null then ae.bloomberg_ticker_and_exchange
+   else sbl.underlying_instrument_name
+end as bloomberg_ticker, sbl.current_quantity * sbl.underlying_instrument_lot_size as shares, sbl.trade_id as deal_number, sbl.counterparty_name as counter_party, sbl.loan_account as source_portfolio, case
+  when sbl.deal_type = 'Buy' then 'Long'
+  when sbl.deal_type = 'Sell' then 'Short'
+end as direction, sbl.trading_portfolio as trading_portfolio, sbl.security_settlement_date as settlement_date, case
+  when UPPER(sbl.collateral_type) = 'CASH'
+  then sbl.reference_rate_spread
+else sbl.current_reference_rate end as rate, 1 as dividend, sbl.current_nominal_currency as local_ccy, sbl.current_nominal_currency as settlement_ccy, null as swap_ref, case
+  when sbl.current_nominal_currency = sbl.fx_rate_base_currency then current_nominal * fx_rate_quoted_in_cad
+  else null
+end as notional_cad, sbl.current_nominal as notional_local, abs(sbl.current_quantity) as abs_quantity, null as instrument_name, sbl.id_underlying_instrument as cppib_sec_id, sbl.collateral_type as collateral_type, sbl.custody_account_code as bbg_account,     sbl.id_instrument as murex_contract, a.sedol as sedol, a.isin as isin, p.incorp_country_code as country_code_incorporation, p.risk_country_code as country_code_risk, sbl.instrument_family_name_source as security_type, sbl.underlying_current_price as price_market_close, sbl.maturity_date from trades_deals.security_borrow_lending_collateral_trades sbl left join asset.asset_equity ae on sbl.id_underlying_instrument=cast(ae.cppib_sec_id as varchar) and sbl.business_date = ae.business_date left join asset.asset_security_identifiers a  on sbl.id_underlying_instrument=cast(a.cppib_sec_id as varchar) and sbl.business_date = a.business_date left join party.party p on ae.cppib_party_id = p.cppib_party_id   and ae.business_date=p.business_date where sbl.business_date = date('2025-06-17') and (sbl.current_quantity * sbl.underlying_instrument_lot_size != 0)"
+7b6991695383b464e04c7c7a88d6c1d2ae89af51c5fa64f4684ca03202a856ba,"/* cppi::7b6991695383b464e04c7c7a88d6c1d2ae89af51c5fa64f4684ca03202a856ba */
+select sbl.business_date as report_date, case
+   when ae.bloomberg_ticker_and_exchange is not null then ae.bloomberg_ticker_and_exchange
+   else sbl.underlying_instrument_name
+end as bloomberg_ticker, sbl.current_quantity * sbl.underlying_instrument_lot_size as shares, sbl.trade_id as deal_number, sbl.counterparty_name as counter_party, sbl.loan_account as source_portfolio, case
+  when sbl.deal_type = 'Buy' then 'Long'
+  when sbl.deal_type = 'Sell' then 'Short'
+end as direction, sbl.trading_portfolio as trading_portfolio, sbl.security_settlement_date as settlement_date, case
+  when UPPER(sbl.collateral_type) = 'CASH'
+  then sbl.reference_rate_spread
+else sbl.current_reference_rate end as rate, 1 as dividend, sbl.current_nominal_currency as local_ccy, sbl.current_nominal_currency as settlement_ccy, null as swap_ref, case
+  when sbl.current_nominal_currency = sbl.fx_rate_base_currency then current_nominal * fx_rate_quoted_in_cad
+  else null
+end as notional_cad, sbl.current_nominal as notional_local, abs(sbl.current_quantity) as abs_quantity, null as instrument_name, sbl.id_underlying_instrument as cppib_sec_id, sbl.collateral_type as collateral_type, sbl.custody_account_code as bbg_account,     sbl.id_instrument as murex_contract, a.sedol as sedol, a.isin as isin, p.incorp_country_code as country_code_incorporation, p.risk_country_code as country_code_risk, sbl.instrument_family_name_source as security_type, sbl.underlying_current_price as price_market_close, sbl.maturity_date from trades_deals.security_borrow_lending_collateral_trades sbl left join asset.asset_equity ae on sbl.id_underlying_instrument=cast(ae.cppib_sec_id as varchar) and sbl.business_date = ae.business_date left join asset.asset_security_identifiers a  on sbl.id_underlying_instrument=cast(a.cppib_sec_id as varchar) and sbl.business_date = a.business_date left join party.party p on ae.cppib_party_id = p.cppib_party_id   and ae.business_date=p.business_date where sbl.business_date = date('2025-06-17') and (sbl.current_quantity * sbl.underlying_instrument_lot_size != 0)"
+07516c8cc5c2d12c7786e0221f3c6a87acb65c622b3837685bd11f238cb22c0b,"/* cppi::07516c8cc5c2d12c7786e0221f3c6a87acb65c622b3837685bd11f238cb22c0b */
+select business_date as pricedate,
+                                        index_ticker as family,
+                                        index_series as series,
+                                        index_version as version,
+                                        index_tenor as tenor,
+                                        composite_spread * 10000 as quote,
+                                        batch as quote_type
+                                        from market.markit_credit_index_pricing
+                                        where business_date >= date'2025-06-18'
+                                        and business_date <= date'2025-06-18'
+                                        and batch in ('NY1500')
+                                        and index_ticker in ('CDXNAHY')
+                                        and index_tenor in ('5Y')"
+655a1164a740ede91d64c57377d869ac329c7f7c8aa3862cdc867f1237708b9c,"/* cppi::655a1164a740ede91d64c57377d869ac329c7f7c8aa3862cdc867f1237708b9c */
+select * from market.cppib_market_equity_pricing_aggregation where ym = '202506'"
+f84124747530c4f5ae81f985e270b617edd078ae3378e719a4d3fa899cd12a59,"/* cppi::f84124747530c4f5ae81f985e270b617edd078ae3378e719a4d3fa899cd12a59 */
+SELECT * FROM ""market"".""bloomberg_bps_price_index_latest"" WHERE UPPER(ticker) = 'JPVOLFBZ INDEX' AND business_date >= to_date('2024-06-17', 'yyyy-mm-dd') AND business_date < to_date('2025-06-17', 'yyyy-mm-dd')"
+5f7ab235f533c9ed578231b07b210a7241d377737d8c9c32f1e39a573ccf6ec5,"/* cppi::5f7ab235f533c9ed578231b07b210a7241d377737d8c9c32f1e39a573ccf6ec5 */
+/* QuickSight 8be4e646-a7c7-4a6f-a8fc-9204152d2ec0 
+ {""partner"":""QuickSight"",""entityId"":""ed17aa1f-21a9-44c1-af76-a707fa763b7e"",""sheetId"":""ed17aa1f-21a9-44c1-af76-a707fa763b7e_1fa48013-a0a6-425e-a60c-5401c463adf4"",""visualId"":""ed17aa1f-21a9-44c1-af76-a707fa763b7e_e0a9342c-d9f8-41b3-b3b1-601f55b8c2b3""} */
+SELECT ""853cd584-ceb4-40a2-85bb-a77d4777ff16.limit_description"", ""ea68dab5-12ca-42ca-bae1-a9483b3c0e97"", ""count"", ""6f16276c-46f8-4a4d-9f15-9752d69e54a1"", ""b8fe2fc1-0c56-4345-ac22-7d49dc380feb"", ""31f45129-dff1-4bda-89a6-925ff0fd0e68"", ""cba4fcce-efba-4596-86c1-5c95d276c39e"", ""4445a3a0-6766-3f91-899b-76dc21b24b5b"", ""b1de4c6a-28a7-3eb1-9399-a49b6de4b634"", ""d625ad55-bf5f-3f2b-bb33-3b41df26c6ba"", ""aef4b024-83e4-31a3-9765-a8ad09b43fff""
+FROM (
+SELECT *
+FROM (
+SELECT ""limit_description"" AS ""853cd584-ceb4-40a2-85bb-a77d4777ff16.limit_description"", CASE WHEN case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end IS NULL OR case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end = 0 THEN '-' WHEN ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end) = ABS(case when regexp_like(""to_value"", '^-?\d+(\.\d*)?$') then cast(""to_value"" as double) else null end) AND ""limit_rule"" = 'AbsGreaterThan' THEN CASE WHEN ""unit"" = 'PERCENTAGE' THEN (COALESCE('+/- ', '')  || COALESCE(CAST(ROUND(ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end), 1) AS VARCHAR), '')  || COALESCE('%', '')) ELSE CASE WHEN ""unit"" = 'bps' THEN (COALESCE('+/- ', '')  || COALESCE(CAST(ROUND(ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end), 1) AS VARCHAR), '')  || COALESCE('bps', '')) ELSE (COALESCE('+/- ', '')  || COALESCE(CAST(CAST(truncate(ROUND(ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end / 1000000), 0)) AS BIGINT) AS VARCHAR), '')  || COALESCE('M', '')) END END WHEN ""limit_description"" = 'ISRC ACPP CAD FX EXPOSURE RANGE THRESHOLD' OR ""limit_description"" = 'ISRC BCPP CAD FX EXPOSURE RANGE THRESHOLD' THEN (COALESCE(CAST(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE(' - ', '')  || COALESCE(CAST(ROUND(case when regexp_like(""to_value"", '^-?\d+(\.\d*)?$') then cast(""to_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE('%', '')) WHEN ""limit_description"" = 'SMD bCPP TP DMFI Exposure Gap Threshold' AND ""unit"" = 'PERCENTAGE' THEN (COALESCE('+/- ', '')  || COALESCE(CAST(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE('%', '')) WHEN ""unit"" = 'PERCENTAGE' AND LOWER(""limit_description"") like '%active risk%' THEN (COALESCE(CAST(CAST(CEILING(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end) AS BIGINT) AS VARCHAR), '')  || COALESCE('bps', '')) WHEN ""unit"" = 'PERCENTAGE' THEN (COALESCE(CAST(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE('%', '')) ELSE (COALESCE(CAST(CAST(truncate(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end / 1000000, 0)) AS BIGINT) AS VARCHAR), '')  || COALESCE('M', '')) END AS ""ea68dab5-12ca-42ca-bae1-a9483b3c0e97"", COUNT(*) AS ""count"", SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-17 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN case when regexp_like(""measure_value"", '^-?\d+(\.\d*)?$') then cast(""measure_value"" as double) else null end ELSE NULL END) AS ""6f16276c-46f8-4a4d-9f15-9752d69e54a1"", SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-17 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) AS ""b8fe2fc1-0c56-4345-ac22-7d49dc380feb"", SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-16 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN case when regexp_like(""measure_value"", '^-?\d+(\.\d*)?$') then cast(""measure_value"" as double) else null end ELSE NULL END) AS ""31f45129-dff1-4bda-89a6-925ff0fd0e68"", SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-16 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) AS ""cba4fcce-efba-4596-86c1-5c95d276c39e"", CASE WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-16 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) >= 100 THEN 0 WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-16 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) >= 95 THEN 1 WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-16 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) >= 90 THEN 2 WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-16 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) < 90 THEN 3 ELSE -1 END AS ""4445a3a0-6766-3f91-899b-76dc21b24b5b"", CASE WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-17 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) > 0 THEN 0 WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-17 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) <= 0 THEN 1 ELSE -1 END AS ""b1de4c6a-28a7-3eb1-9399-a49b6de4b634"", CASE WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-16 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) > 0 THEN 0 WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-16 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) <= 0 THEN 1 ELSE -1 END AS ""d625ad55-bf5f-3f2b-bb33-3b41df26c6ba"", CASE WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-17 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) >= 100 THEN 0 WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-17 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) >= 95 THEN 1 WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-17 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) >= 90 THEN 2 WHEN SUM(CASE WHEN CAST(PARSE_DATETIME(""business_date"", 'yyyy-MM-dd') AS TIMESTAMP) = CAST(PARSE_DATETIME('2025-06-17 00:00:00', 'yyyy-MM-dd HH:mm:ss') AS TIMESTAMP) THEN CASE WHEN case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end IS NULL THEN CAST(0 AS DOUBLE) ELSE case when regexp_like(""limit_utilization_percent"", '^-?\d+(\.\d*)?$') then cast(""limit_utilization_percent"" as double) else null end END ELSE NULL END) < 90 THEN 3 ELSE -1 END AS ""aef4b024-83e4-31a3-9765-a8ad09b43fff"", ROW_NUMBER() OVER (ORDER BY ""limit_description"" NULLS FIRST, CASE WHEN case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end IS NULL OR case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end = 0 THEN '-' WHEN ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end) = ABS(case when regexp_like(""to_value"", '^-?\d+(\.\d*)?$') then cast(""to_value"" as double) else null end) AND ""limit_rule"" = 'AbsGreaterThan' THEN CASE WHEN ""unit"" = 'PERCENTAGE' THEN (COALESCE('+/- ', '')  || COALESCE(CAST(ROUND(ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end), 1) AS VARCHAR), '')  || COALESCE('%', '')) ELSE CASE WHEN ""unit"" = 'bps' THEN (COALESCE('+/- ', '')  || COALESCE(CAST(ROUND(ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end), 1) AS VARCHAR), '')  || COALESCE('bps', '')) ELSE (COALESCE('+/- ', '')  || COALESCE(CAST(CAST(truncate(ROUND(ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end / 1000000), 0)) AS BIGINT) AS VARCHAR), '')  || COALESCE('M', '')) END END WHEN ""limit_description"" = 'ISRC ACPP CAD FX EXPOSURE RANGE THRESHOLD' OR ""limit_description"" = 'ISRC BCPP CAD FX EXPOSURE RANGE THRESHOLD' THEN (COALESCE(CAST(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE(' - ', '')  || COALESCE(CAST(ROUND(case when regexp_like(""to_value"", '^-?\d+(\.\d*)?$') then cast(""to_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE('%', '')) WHEN ""limit_description"" = 'SMD bCPP TP DMFI Exposure Gap Threshold' AND ""unit"" = 'PERCENTAGE' THEN (COALESCE('+/- ', '')  || COALESCE(CAST(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE('%', '')) WHEN ""unit"" = 'PERCENTAGE' AND LOWER(""limit_description"") like '%active risk%' THEN (COALESCE(CAST(CAST(CEILING(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end) AS BIGINT) AS VARCHAR), '')  || COALESCE('bps', '')) WHEN ""unit"" = 'PERCENTAGE' THEN (COALESCE(CAST(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE('%', '')) ELSE (COALESCE(CAST(CAST(truncate(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end / 1000000, 0)) AS BIGINT) AS VARCHAR), '')  || COALESCE('M', '')) END NULLS FIRST) AS ""$row_rank_9""
+FROM ""AwsDataCatalog"".""risk_prod"".""limit_utilization""
+WHERE ""start_date"" IN ('2025-04-01') AND ""limit_name"" IN ('SMD_AIFACT_ACT_VOL_THRESHOLD_CAD_GT', 'SMD_AIFACT_ACT_PNL_CAD_GT')
+GROUP BY ""limit_description"", CASE WHEN case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end IS NULL OR case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end = 0 THEN '-' WHEN ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end) = ABS(case when regexp_like(""to_value"", '^-?\d+(\.\d*)?$') then cast(""to_value"" as double) else null end) AND ""limit_rule"" = 'AbsGreaterThan' THEN CASE WHEN ""unit"" = 'PERCENTAGE' THEN (COALESCE('+/- ', '')  || COALESCE(CAST(ROUND(ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end), 1) AS VARCHAR), '')  || COALESCE('%', '')) ELSE CASE WHEN ""unit"" = 'bps' THEN (COALESCE('+/- ', '')  || COALESCE(CAST(ROUND(ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end), 1) AS VARCHAR), '')  || COALESCE('bps', '')) ELSE (COALESCE('+/- ', '')  || COALESCE(CAST(CAST(truncate(ROUND(ABS(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end / 1000000), 0)) AS BIGINT) AS VARCHAR), '')  || COALESCE('M', '')) END END WHEN ""limit_description"" = 'ISRC ACPP CAD FX EXPOSURE RANGE THRESHOLD' OR ""limit_description"" = 'ISRC BCPP CAD FX EXPOSURE RANGE THRESHOLD' THEN (COALESCE(CAST(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE(' - ', '')  || COALESCE(CAST(ROUND(case when regexp_like(""to_value"", '^-?\d+(\.\d*)?$') then cast(""to_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE('%', '')) WHEN ""limit_description"" = 'SMD bCPP TP DMFI Exposure Gap Threshold' AND ""unit"" = 'PERCENTAGE' THEN (COALESCE('+/- ', '')  || COALESCE(CAST(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE('%', '')) WHEN ""unit"" = 'PERCENTAGE' AND LOWER(""limit_description"") like '%active risk%' THEN (COALESCE(CAST(CAST(CEILING(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end) AS BIGINT) AS VARCHAR), '')  || COALESCE('bps', '')) WHEN ""unit"" = 'PERCENTAGE' THEN (COALESCE(CAST(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end, 1) AS VARCHAR), '')  || COALESCE('%', '')) ELSE (COALESCE(CAST(CAST(truncate(ROUND(case when regexp_like(""from_value"", '^-?\d+(\.\d*)?$') then cast(""from_value"" as double) else null end / 1000000, 0)) AS BIGINT) AS VARCHAR), '')  || COALESCE('M', '')) END
+) AS ""t""
+WHERE ""$row_rank_9"" <= 500 + 500 AND ""$row_rank_9"" > 500
+ORDER BY ""$row_rank_9""
+) AS ""t0"""
+408693e9d4ca53056fc75c82c772b90208a91bd894926872daf0138a740a44f1,"/* cppi::408693e9d4ca53056fc75c82c772b90208a91bd894926872daf0138a740a44f1 */
+select * from (select data_date as date_, factor_1 as factor1, factor_2 as factor2, release_date, max(release_date) over (partition by data_date, factor_1, factor_2) as max_release_date, var_covar from asset.barra_gemlt_factor_covariance where data_date between date '2025-06-10' and date '2025-06-17' and year between 2025 and 2025 ) where release_date = max_release_date"
+6e5629d052843a31ddf0041ea96308ad15ce795408cdf88d08d0ec6436a37d5e,"/* cppi::6e5629d052843a31ddf0041ea96308ad15ce795408cdf88d08d0ec6436a37d5e */
+select feature_id, date_, security_id, value from cmf.auto_features_double where feature_id in ('qe_cust_m240__20210923','qe_wc_turn__RIGDE11','qe_fcf2p__RIGDE273','qe_share_chg_756d_mcap_wght_neg__RIGDE205','qe_scfg__20210814','qe_fcf_growth_12q__20210814','qe_fcf2sales__20210814','qe_ciq_transcripts_sentiment_75p_dm730__RIGDE337','qe_ebit2p_ts_zscore_520__RIGDE273','qe_hfownpct_dm365d_avg30d__RIGDE216','qe_gross_profit_margin__RIGDE10','qe_roe_trend_20q__20210814','qe_ni2p_surp__RIGDE4','qe_capex2sales_neg__RIGDE110','qe_mtrend_240d_lag_20d__RIGDE8','qe_fcf2ev__RIGDE273','qe_ltd2at_neg_RIGDE280','qe_fcf2p_ts_zscore_130__RIGDE273','qe_ebit2p_ts_zscore_260__RIGDE273','qe_ebitda2at__RIGDE10','qe_mom_195d_lag_20d_20211104','qe_short_pos_allcom_div_20dma_756d_dm_neg__20211119','qe_10ypatentpeer_m240___RIGDE331','qe_aj2emp__RIGDE333','qe_sales2ev__RIGDE273','qe_repy_12q__RIGDE110','qe_b2p_ts_zscore_260__RIGDE273','qe_web_visits_avg90d_chg365d_filtered__RIGDE183','qe_ocf2p_ts_zscore_780__RIGDE273','qe_hfownpct_chg365d_avg30d__RIGDE216','qe_sales2p__RIGDE273','qe_roa_trend_20q__RIGDE10','qe_utilisation_div_20dma_neg__20211006','qe_fcf2p_ts_zscore_780__RIGDE273','qe_web_visitors_avg90d_chg365d_filtered__RIGDE183','qe_ebit2ev__RIGDE273','qe_cust_ebit_rev_90d__20211031','qe_asto__20210814','qe_cfroic__RIGDE10','qe_ocf2p_ts_zscore_520__RIGDE273','qe_aq2at_8q_neg__RIGDE110','qe_ebit_growth_fy1_to_fy2__20210814','qe_ebit2p_ts_zscore_130__RIGDE273','qe_sales_rev_90d___RIGDE3','qe_citc2at_5y_lag3y___RIGDE331','qe_comp_m240__20210923','qe_10ypatentpeer_m180___RIGDE331','qe_ocf_growth_12q__20210814','qe_opm_growth_4q__RIGDE10','qe_mom_240d_lag_20d_20211102','qe_asto_growth_12q__20210814','qe_asto_growth_4q__RIGDE11','qe_dtc_div_20dma_756d_dm_neg__20211006','qe_ebit2p__RIGDE273','qe_comp_ebit_rev_90d__20211031','qe_ebit_surp_avg_4q__20210814','qe_utilisation_div_20dma_756d_dm_neg__20211006','qe_sales_surp_avg_4q__20211011','qe_wc_accrual_neg__20210814','qe_ciq_transcripts_sentiment_75p__RIGDE337','qe_cust_m180__20210923','qe_short_pos_allcom_div_20dma_neg__20211006','qe_ltg__20210814','qe_recv_turn__RIGDE11','qe_ocf2ev__RIGDE273','qe_ocf_growth_4q__20210814','qe_cf_accrual_neg__20210814','qe_b2p_ts_zscore_780__RIGDE273','qe_mtstat_240d_lag_20d__RIGDE12','qe_invto__20210814','qe_capex2dep_neg__RIGDE110','qe_b2p_ts_zscore_130__RIGDE273','qe_capex2at_neg__RIGDE110','qe_dtc_div_20dma_neg__20211006','qe_ebit_rev_90d___RIGDE3','qe_fcf_growth_4q__20210814','qe_ib2p__RIGDE273','qe_opm_growth_12q__RIGDE10','qe_asset_growth_12q_neg__RIGDE110','qe_ebit_growth_fy4_to_fy5__20210814','qe_fcf2p_ts_zscore_260__RIGDE273','qe_ebit_growth_fy2_to_fy3__20210814','qe_comp_sales_rev_90d__20211031','qe_comp_m180__20210923','qe_citc2at_5y___RIGDE331','qe_ocf2p_ts_zscore_260__RIGDE273','qe_b2p_ts_zscore_520__RIGDE273','qe_ocf2p_ts_zscore_130__RIGDE273','qe_web_visit_duration_avg90d_chg365d_filtered__RIGDE183','qe_ebit2p_ts_zscore_780__RIGDE273','qe_cust_sales_rev_90d__20211031','qe_gp2at__RIGDE10','qe_ebit_growth_fy3_to_fy4__20210814','qe_ocf2p__RIGDE273','qe_fcf2p_ts_zscore_520__RIGDE273','qe_roic__RIGDE10','qe_td2at_neg_RIGDE280') and date_ >= date '2025-06-17' and date_ <= date '2025-06-17' and security_id in (34,38,48,131,149,155,169,196,471,631,638,656,693,899,1126,1226,1243,1260,1278,1311,1315,1633,1635,1636,1699,1770,1919,2320,2398,2480,2829,3062,3096,3160,3162,3203,3210,3336,3378,4553,4573,4578,4626,4684,6577,6972,6976,7008,7029,7356,7425,7837,7927,8201,8310,8507,9025,9026,10005,10174,10373,10873,11678,11846,11998,12024,12224,12368,12392,12837,12996,13083,13119,13314,17227,184815,186764,194828,204093,219443,221329,573753,574222,583407,587845,588131,2870341,2932586,3519975,3938442,6890947,6971157,7673897,8600935,11048645,13219633,13648012,15182266,15740247,15751757,15811155,16629294,17302025,17412663,17670674,18483035,19384775,19505334,19546077,19642539,19720287,19944138,20067238,20656967,21043393,21384112,21397397,21469313,21784882,22260437,22338162,22500340,22595691,22615395,22861840,23161295,23664322,23664324,23710596,23840952,23890088,24008147,24177597,24250442,24339605,24421157,24444703,24529490,24532887,24536592,24768005,24785844,24867203,24867204,24885058,25144783,25476923,27433735,27526949)"
+5e0783a7b41168fced80695511d9d0386d939c236e98fa1e98234772be1188ed,"/* cppi::5e0783a7b41168fced80695511d9d0386d939c236e98fa1e98234772be1188ed */
+SELECT t.date_, t.strategy_id, t.factor_id, t.portfolio_type_id, t.measure_id, t.category_id, t.scale_id, t.value
+    FROM cmf.mdr_portfolio_category_measure t join cmf.mdr_strategy s on t.strategy_id = s.strategy_id
+    WHERE t.date_ BETWEEN  date '2025-06-10' AND  date '2025-06-17'  and t.measure_id in ('ex_post_style_corr') and t.strategy_id in ('us_eb_gics25_v1') and t.portfolio_type_id in ('model')"
+5e0783a7b41168fced80695511d9d0386d939c236e98fa1e98234772be1188ed,"/* cppi::5e0783a7b41168fced80695511d9d0386d939c236e98fa1e98234772be1188ed */
+SELECT t.date_, t.strategy_id, t.factor_id, t.portfolio_type_id, t.measure_id, t.category_id, t.scale_id, t.value
+    FROM cmf.mdr_portfolio_category_measure t join cmf.mdr_strategy s on t.strategy_id = s.strategy_id
+    WHERE t.date_ BETWEEN  date '2025-06-10' AND  date '2025-06-17'  and t.measure_id in ('ex_post_style_corr') and t.strategy_id in ('us_eb_gics25_v1') and t.portfolio_type_id in ('model')"
+696f52ae1acc36e48152b2be463f047a945592d68ed4ae45a1b5f76377bf8d05,"/* cppi::696f52ae1acc36e48152b2be463f047a945592d68ed4ae45a1b5f76377bf8d05 */
+select distinct factor, display_name, group_name from cmf.barra_factors_meta_gemlt where upper(factor) like '%%'"
+57874d5b9d2de39b9776aed0d3474ea1f9715e0e9b5e8c032ab7f9f626fb537d,"/* cppi::57874d5b9d2de39b9776aed0d3474ea1f9715e0e9b5e8c032ab7f9f626fb537d */
+select date_, security_id, bmi_country_code from asset.qsrp_security_identifiers
+                     where date_ between date '2025-06-17' and date '2025-06-17' 
+                      and security_id in (10186,10192,10193,10195,10387,10616,10826,10914,11063,11083,11221,11296,11495,11712,11750,11888,12427,12450,12451,12467,12468,12471,12486,12512,12591,12595,12606,12608,12764,12766,12852,13186910,13222,13829207,15456545,161589,161701,1758,17717337,17717808,17717813,17717820,17717869,17717872,17897634,183690,18475302,1904,1928,19318919,19318998,19319000,19416059,19615137,2011,2014,20248202,20248204,2025,205880,2060,2067,20811943,21176354,213260,2133,214413,21544108,2157,21583329,21656534,21664322,21707620,21712238,21866649,21900128,222495,22348736,226227,23380959,23484007,2352,2356,23723599,23891073,23901021,23926880,23989075,24080631,24545561,24569621,24712670,24933283,252207,25385003,25493925,255466,25931597,266506,27229,31571,35178,3747139,4412,44523,4788,4792,4807,4834,4847,4855,4856,4861,4872,4881,4930,4956,4975,497958,4980,5053,5055,5080,5134454,5405,5436,5637,586151,586995,5882,5886,6364,6383,6394980,7191,7267,7316,7317,7484,7496,7528,7552,7556,7910,8000,8484,8630,8817,9030,9150,9186,9241,9377,9393,9443624,9499,9570,9629,9727,9728,9912557,9940)"
+c870078c1df981d6822e100562269565f0d5dd6e0ec6d3afecbc7149b9639e28,"/* cppi::c870078c1df981d6822e100562269565f0d5dd6e0ec6d3afecbc7149b9639e28 */
+select business_date as date_, security_id, country_domicile, ROW_NUMBER() over (partition by business_date, id_vendor_security_ndo order by feed_version asc, id_cppib_index asc) as rn from market.cppib_market_index_constituents_mapped_rimes where business_date between date '2025-06-17' and date '2025-06-17'
+    and security_id is not null and weight_ndo >0  and id_cppib_index in ('EUGBR_GR_USD_0_0','JPR_GR_USD_0_0','MS757951_GR_USD_0_0')
+     and security_id in (10186,10192,10193,10195,10387,10616,10826,10914,11063,11083,11221,11296,11495,11712,11750,11888,12427,12450,12451,12467,12468,12471,12486,12512,12591,12595,12606,12608,12764,12766,12852,13186910,13222,13829207,15456545,161589,161701,1758,17717337,17717808,17717813,17717820,17717869,17717872,17897634,183690,18475302,1904,1928,19318919,19318998,19319000,19416059,19615137,2011,2014,20248202,20248204,2025,205880,2060,2067,20811943,21176354,213260,2133,214413,21544108,2157,21583329,21656534,21664322,21707620,21712238,21866649,21900128,222495,22348736,226227,23380959,23484007,2352,2356,23723599,23891073,23901021,23926880,23989075,24080631,24545561,24569621,24712670,24933283,252207,25385003,25493925,255466,25931597,266506,27229,31571,35178,3747139,4412,44523,4788,4792,4807,4834,4847,4855,4856,4861,4872,4881,4930,4956,4975,497958,4980,5053,5055,5080,5134454,5405,5436,5637,586151,586995,5882,5886,6364,6383,6394980,7191,7267,7316,7317,7484,7496,7528,7552,7556,7910,8000,8484,8630,8817,9030,9150,9186,9241,9377,9393,9443624,9499,9570,9629,9727,9728,9912557,9940)"
+2d69ece602155a2171476e2c73b84bfef393f9d7662efa510e51a14f770c52c0,"/* cppi::2d69ece602155a2171476e2c73b84bfef393f9d7662efa510e51a14f770c52c0 */
+select business_date as date_, security_id, iso_currency_ndo, last_value_ndo, ROW_NUMBER() over (partition by business_date, id_vendor_security_ndo order by feed_version asc, id_cppib_index asc) as rn from market.cppib_market_index_constituents_mapped_rimes where business_date between date '2024-06-17' and date '2025-06-17'
+    and security_id is not null and weight_ndo >0  and id_cppib_index in ('SP500_GR_USD_0_0','SP500_10_GR_USD_0_0','SP500_15_GR_USD_0_0','SP500_20_GR_USD_0_0','SP500_25_GR_USD_0_0','SP500_30_GR_USD_0_0','SP500_35_GR_USD_0_0','SP500_40_GR_USD_0_0','SP500_45_GR_USD_0_0','SP500_50_GR_USD_0_0','SP500_55_GR_USD_0_0','SP500_60_GR_USD_0_0')
+     and security_id in (1719,1727,1740,1758,1764,1777,1785,1796,1848,1875,1876,1904,1911,1912,1928,2011,2013,2014,2016,2017,2025,2060,2067,2075,2125,2133,2134,2157,2271,2292,2350,2351,2352,2354,2355,2356,4329,4412,4437,4526,4788,4792,4797,4802,4804,4805,4807,4831,4833,4834,4847,4854,4855,4856,4861,4866,4872,4881,4891,4930,4956,4957,4959,4963,4969,4975,4980,4982,4985,5032,5049,5052,5053,5055,5080,5403,5405,5436,5465,5555,5558,5568,5626,5637,5639,5676,5677,5691,5704,5757,5777,5817,5827,5856,5868,5873,5874,5881,5882,5886,5887,6280,6291,6332,6333,6337,6345,6348,6364,6374,6383,6454,6478,6631,6666,7128,7130,7131,7177,7178,7191,7196,7219,7236,7240,7248,7254,7267,7276,7316,7317,7326,7378,7481,7483,7484,7496,7528,7536,7539,7541,7552,7555,7556,7724,7725,7850,7869,7903,7906,7910,7978,8000,8003,8004,8219,8320,8321,8484,8485,8514,8526,8610,8621,8623,8629,8630,8634,8817,8987,9030,9044,9059,9132,9149,9150,9175,9177,9178,9183,9186,9188,9204,9220,9241,9377,9381,9393,9455,9477,9499,9514,9536,9570,9629,9695,9727,9728,9738,9741,9774,9789,9831,9849,9940,9970,9995,10159,10170,10185,10186,10187,10192,10193,10195,10205,10387,10459,10461,10465,10518,10522,10523,10524,10582,10616,10641,10799,10811,10826,10840,10914,11063,11083,11092,11093,11098,11099,11101,11102,11103,11106,11107,11116,11128,11131,11137,11221,11247,11296,11368,11387,11403,11418,11485,11495,11549,11672,11712,11750,11767,11775,11858,11859,11888,12200,12327,12328,12418,12421,12422,12423,12424,12427,12450,12451,12452,12453,12456,12459,12467,12468,12471,12472,12475,12482,12486,12512,12519,12525,12550,12591,12593,12595,12596,12598,12600,12606,12608,12609,12610,12611,12615,12618,12619,12625,12634,12648,12657,12659,12662,12665,12667,12670,12692,12699,12764,12766,12800,12852,12883,13170,13222,21737,21923,22085,22353,22478,22838,22891,24805,24831,25160,25282,27158,27187,27229,31571,33975,34339,34576,35178,42428,44498,44521,44523,44914,44945,45698,47106,64967,65856,75712,80036,85722,161469,161589,161701,164776,164809,169734,170577,173417,173928,174582,179713,181651,183108,183690,184732,190527,194745,205076,205320,205539,205880,206133,206891,209377,210852,211512,211883,212288,212780,213260,213900,214193,214413,220355,220927,222495,222542,224467,224510,224559,226227,226453,226457,227058,251032,252181,252207,252312,252323,253629,255466,256218,256340,257337,258235,258685,265105,265441,265724,266506,495076,495510,497501,497958,557499,568227,586151,586995,2816332,2893856,3092764,3373697,3522011,3747139,5085313,5098026,5134454,5286722,6394980,7156239,7716238,9443624,9619194,9912557,11064611,11164381,11528953,12723212,13186910,13643553,13829207,14665861,15456545,16534687,17383908,17466780,17612768,17651905,17717319,17717324,17717325,17717326,17717328,17717329,17717332,17717335,17717336,17717337,17717338,17717339,17717340,17717342,17717344,17717345,17717346,17717347,17717355,17717357,17717361,17717363,17717365,17717367,17717372,17717375,17717377,17717381,17717390,17717396,17717397,17717398,17717400,17717401,17717409,17717411,17717414,17717418,17717426,17717427,17717439,17717452,17717462,17717466,17717479,17717489,17717491,17717496,17717516,17717519,17717520,17717524,17717529,17717530,17717536,17717548,17717550,17717554,17717570,17717572,17717580,17717583,17717585,17717596,17717606,17717607,17717610,17717616,17717634,17717644,17717652,17717663,17717667,17717680,17717704,17717710,17717728,17717729,17717739,17717741,17717748,17717749,17717751,17717752,17717754,17717770,17717774,17717775,17717780,17717781,17717784,17717788,17717790,17717796,17717797,17717798,17717799,17717802,17717806,17717808,17717811,17717812,17717813,17717815,17717817,17717819,17717820,17717823,17717825,17717827,17717828,17717829,17717831,17717832,17717833,17717836,17717837,17717839,17717840,17717844,17717845,17717851,17717852,17717855,17717856,17717858,17717861,17717862,17717865,17717866,17717868,17717869,17717870,17717872,17717874,17717886,17788137,17851681,17851684,17851688,17851689,17851693,17851719,17897634,17936971,18300072,18300080,18475302,19236559,19304651,19318919,19318942,19318998,19319000,19383966,19414378,19414398,19414400,19414403,19414404,19416059,19416062,19467467,19524491,19533892,19559321,19615137,19694018,19694027,19694028,19694030,19694031,19694033,19694040,19694046,19740306,19871081,19881296,19914508,19918806,19957262,19957272,19958536,19958539,20026714,20079668,20129625,20189389,20214547,20214548,20214549,20214551,20214552,20214553,20214555,20214556,20214974,20214976,20214986,20214990,20214992,20214993,20215003,20215004,20215025,20215038,20215040,20215050,20215060,20215062,20215066,20215070,20215098,20215099,20215116,20215120,20215121,20215122,20215130,20215152,20215161,20215179,20215182,20215189,20215195,20215196,20215199,20215201,20215206,20215208,20215212,20215226,20215230,20215240,20215241,20215247,20215253,20215255,20215260,20215283,20215284,20215291,20215296,20215300,20215313,20215317,20215325,20215334,20215339,20215342,20215346,20215353,20215365,20215373,20215381,20215388,20215393,20215411,20215418,20215426,20215433,20215449,20215454,20215478,20215480,20215483,20215485,20215486,20215492,20215503,20215535,20215552,20215554,20215555,20215566,20215580,20215590,20215602,20215604,20215626,20215627,20215637,20215653,20215682,20215683,20215723,20215737,20215750,20215771,20215779,20215780,20215802,20215803,20215804,20215806,20215817,20217685,20248202,20248204,20282277,20282279,20498624,20498653,20498666,20498670,20555053,20605135,20627607,20644742,20690231,20811943,20820682,20821826,20821830,20821831,20821835,20821841,20871161,20871169,20875802,20956816,20987012,21107533,21131454,21145188,21176354,21194710,21202632,21202650,21202653,21264925,21264936,21264944,21264949,21517862,21544108,21583329,21589585,21589597,21589598,21589605,21589611,21635771,21651527,21651550,21651551,21651554,21651558,21656534,21664322,21707620,21712238,21728806,21779322,21798245,21849529,21866649,21900128,21900703,21945711,21959201,21980605,21980616,21980618,21980622,21980623,21980626,21980628,22021266,22021272,22021273,22051835,22111129,22275493,22348736,22432169,22432173,22432174,22432186,22436762,22436763,22747057,22807991,22861842,22900899,22922008,22925375,22925857,22925864,22930978,22930992,22931005,23261983,23281163,23359928,23380959,23435024,23435034,23435043,23435085,23484004,23484005,23484006,23484007,23508178,23602288,23639755,23690075,23704443,23723599,23783673,23791256,23862520,23873541,23891073,23901021,23926880,23968505,23968512,23968513,23968514,23971112,23971150,23989075,24080631,24105369,24105372,24105374,24105376,24441748,24492276,24537463,24537465,24537466,24537468,24537469,24541029,24541037,24541043,24545561,24569621,24609147,24712670,24779844,24933283,25069311,25069313,25069320,25069322,25069328,25069336,25069340,25069373,25073505,25385003,25392245,25493925,25568146,25568168,25568169,25931597,26028313,26028345,26262974,26262984,26263056,26263060,26263119,26263129,26263347,26263369,26263387,26263404,26263476,26461316,26509990,26658006,26658008,26819010,26819013,26925712,27192865,27391834,27799356,27896365,28096066,28121769,28185393,29105045,29209915)"
+ad4e3ba9848a06296a9cc6b28594fa0249dffb9a9a1a05c9e068859e7661055f,"/* cppi::ad4e3ba9848a06296a9cc6b28594fa0249dffb9a9a1a05c9e068859e7661055f */
+select pricing_date as date_, security_id, close,split_factor,daily_return,currency,is_exchange_holiday,COALESCE(is_suspended_flag, 0) as is_suspended_flag from market.cppib_market_equity_prices where pricing_date between date '2024-06-17' and date '2025-06-17' and security_id in (20198645,20197195,20197179,20197177,20197197,20197191,20197192,20197173,20197168,20202839,20197188,20197193,20197189,20023271,20202840) and  ym between  '202406'  and  '202506'"
+fdaede4627c484cdf03948de0f03a5cbead8a1488dd5f936d4a74a4f8e21d4a5,"/* cppi::fdaede4627c484cdf03948de0f03a5cbead8a1488dd5f936d4a74a4f8e21d4a5 */
+select distinct group_name, factor, display_name from cmf.barra_factors_meta_gemlt where upper(group_name) like '%%'"
+e7fa40174c7c9584c3f340674497ceac0ef4643777b41458823bbc09dd318436,"/* cppi::e7fa40174c7c9584c3f340674497ceac0ef4643777b41458823bbc09dd318436 */
+SELECT distinct business_date, index_code, last_price
+FROM market.bloomberg_index_price_latest
+where business_date >= date '2025-04-18'
+and business_date <= date '2025-04-18'"
+6bc26a37fb828c42a107fc675b8c4bacde3dda78d3630f50c01170daf97f7dd8,"/* cppi::6bc26a37fb828c42a107fc675b8c4bacde3dda78d3630f50c01170daf97f7dd8 */
+SELECT cppib_sec_id, isin , cusip , sedol, bloomberg_unique_id , src_sec_typ, ticker, cntry, sec_typ_lvl1_nm, sec_status    from asset.asset_security_identifiers_universe    where cppib_sec_id in(    SELECT  MAX_BY(cppib_sec_id, creation_date_time) AS cppib_sec_id    from asset.asset_security_identifiers_universe     where bloomberg_unique_id in ('EQ0015333500001000','EQ0087182500001000','EQ0000000086115105','EQ0000000086386622','EQ0015350000001000','EQ0000000088486997','EQ0015331200001000','EQ0000000009884635','EQ0088365700001000','EQ0031369800001000','EQ0000000088220476','EQ0000000093572308','EQ0012800900001000','EQ0000000003280654','EQ0000000003200006','EQ0031309800001000','EQ0119768900001000','EQ0082357500001000','EQ0010001200009000','EQ0010472100002000','EQ0000000003371390','EQ0000000000399234','EQ0017125200001000','EQ0081855800001000','EQ0010825900001000','EQ0011387500001000','EQ0011448900001000','EQ0011419800001000','EQ0011368600001000','EQ0011337200001000','EQ0011482100001000','EQ0011518800001000','EQ0000000020072534','EQ0757568600001000','EQ0000000000496862','EQ0000000012264833','EQ0000000002781197','EQ0018669200100000','EQ0000000011477955','EQ0081242600001000','EQ0011378300001000','EQ0011430900001000','EQ0081296700001000','EQ0524063305183467','EQ0088101800001000','EQ0011388100001000','EQ0145928200001000','EQ0000000000938332','EQ0000000008944243','EQ0011498500001000','EQ0011440700001000','EQ0011332600001000','EQ0113587600001000','EQ0022334000001000','EQ0011946900001000','EQ0000000001939205','EQ0087231700001000','EQ0011263800001000','EQ0032806900001000','EQ0087638000001000','EQ0000000000452806','EQ0000000045469815','EQ0000000006846232','EQ0000000002589378','EQ0011010800001000','EQ0703208300001000','EQ0010825900001001','EQ0000000037745101','EQ0087625300001000','EQ0000000028074160','EQ0000000030444843','EQ0013616000001000','EQ0019371700001000','EQ0010006000001000','EQ0010190700001000','EQ0000000002955658','EQ0000000016936864','EQ0010169000001000','EQ0013611800001000','EQ0021102800001000','EQ0000000022120836','EQ0018656700001000','EQ0000000006388297','EQ0000000017202648','EQ0711385400001000','EQ0000000040242699','EQ0702702300001000','EQ0033055500001000','EQ0011384100001000','EQ0022736700001000','EQ0020910300001000','EQ0000000026422000','EQ0011328100001000','EQ0000000011174722','EQ0000000003323384','EQ0000000015699754','EQ0000000038980841','EQ0000000002288020','EQ0742035900001000','EQ0011440600001000')    GROUP BY bloomberg_unique_id   )"
+8a9611be8b0db51331654c4d79538ae141881609659c01d94c2a3fa1cb9cf3f8,"/* cppi::8a9611be8b0db51331654c4d79538ae141881609659c01d94c2a3fa1cb9cf3f8 */
+SELECT bloomberg_unique_id, bloomberg_primary_listing_exchange_flag, bloomberg_ticker_and_exchange, primary_listing_exchange   from asset.asset_equity_universe where bloomberg_unique_id in ('EQ0010190700001000','EQ0087638000001000','EQ0018669200100000','EQ0081296700001000','EQ0015333500001000','EQ0011448900001000','EQ0000000006846232','EQ0000000002288020','EQ0012800900001000','EQ0081855800001000','EQ0000000015699754','EQ0033055500001000','EQ0011388100001000','EQ0011368600001000','EQ0011387500001000','EQ0011518800001000','EQ0010825900001000','EQ0011384100001000','EQ0524063305183467','EQ0711385400001000','EQ0021102800001000','EQ0010006000001000','EQ0757568600001000','EQ0031369800001000','EQ0011263800001000','EQ0011378300001000','EQ0000000001939205','EQ0000000045469815','EQ0000000003323384','EQ0113587600001000','EQ0000000011477955','EQ0022736700001000','EQ0011430900001000','EQ0087182500001000','EQ0000000026422000','EQ0032806900001000','EQ0000000017202648','EQ0000000006388297','EQ0119768900001000','EQ0000000000452806','EQ0000000012264833','EQ0000000037745101','EQ0000000003200006','EQ0000000003280654','EQ0017125200001000','EQ0020910300001000','EQ0703208300001000','EQ0019371700001000','EQ0011946900001000','EQ0000000028074160','EQ0087231700001000','EQ0000000000496862','EQ0000000030444843','EQ0011440700001000','EQ0000000086115105','EQ0000000003371390','EQ0011328100001000','EQ0018656700001000','EQ0082357500001000','EQ0013616000001000','EQ0011482100001000','EQ0031309800001000','EQ0000000040242699','EQ0011498500001000','EQ0000000016936864','EQ0000000011174722','EQ0010001200009000','EQ0011337200001000','EQ0011440600001000','EQ0088365700001000','EQ0011332600001000','EQ0010169000001000','EQ0000000000938332','EQ0742035900001000','EQ0011010800001000','EQ0015350000001000','EQ0088101800001000','EQ0000000088486997','EQ0013611800001000','EQ0145928200001000','EQ0000000038980841','EQ0000000002955658','EQ0000000008944243','EQ0000000002781197','EQ0000000002589378','EQ0011419800001000','EQ0000000000399234','EQ0702702300001000','EQ0000000086386622','EQ0000000009884635','EQ0081242600001000','EQ0010472100002000','EQ0015331200001000','EQ0000000022120836','EQ0010825900001001','EQ0087625300001000','EQ0022334000001000','EQ0000000020072534')"
+adbfe10a54dcd1f3e03a85c90b296586c12a32d4a10619bc699cddf027c7a897,"/* cppi::adbfe10a54dcd1f3e03a85c90b296586c12a32d4a10619bc699cddf027c7a897 */
+SELECT * FROM (select asi.cppib_sec_id , asi.sec_typ_lvl1_nm from asset.asset_security_identifiers asi  where asi.sec_typ_lvl1_nm in ('Bond', 'Equity') and asi.business_date = NULL   AND ( asi.cppib_sec_id in ( NULL ) )) T LIMIT 0"
+840cf1687f9a6e942e551717cf5e8923394e3044c321539ecb3ff06a187a122c,"/* cppi::840cf1687f9a6e942e551717cf5e8923394e3044c321539ecb3ff06a187a122c */
+SELECT * FROM (WITH params AS (
+            SELECT from_iso8601_date( NULL ) AS query_date
+        ),
+             adjusted_date AS (
+                 SELECT
+                     query_date,
+                     CASE
+                         WHEN day_of_week(query_date) = 1 THEN query_date - interval '3' day
+                         WHEN day_of_week(query_date) = 7 THEN query_date - interval '1' day
+                         ELSE query_date - interval '1' day
+                         END AS business_date
+                 FROM params
+             ),
+             account_mapping_query AS (
+                 SELECT
+                     date_format(pam.as_of_date, '%Y-%m-%d') AS BUSINESS_DATE,
+                     pam.mx_portfolio_id AS MUREX_PORTOFOLIO,
+                     pam.bbg_pfolio_id AS BBG_ACCOUNT,
+                     pam.model_portfolio AS SCD_ACCOUNT,
+                     pam.sst_account AS SST_ACCOUNT
+                 FROM reference.model_portfolio_account_mapping pam
+                 WHERE pam.as_of_date BETWEEN (SELECT business_date FROM adjusted_date) - interval '7' day
+                           AND (SELECT business_date FROM adjusted_date) - interval '1' day
+             ),
+             unioned_data AS (
+                 select COALESCE(BUSINESS_DATE, '') as BUSINESS_DATE,
+                        COALESCE(TRIM(MUREX_PORTOFOLIO), '') as MUREX_PORTOFOLIO,
+                        COALESCE(TRIM(BBG_ACCOUNT), '') as BBG_ACCOUNT,
+                        COALESCE(TRIM(SCD_ACCOUNT), '') as SCD_ACCOUNT,
+                        COALESCE(TRIM(SST_ACCOUNT), '') as SST_ACCOUNT
+                 FROM account_mapping_query
+
+                 UNION
+
+                 SELECT
+                     scd.business_date AS BUSINESS_DATE,
+                     '' AS MUREX_PORTOFOLIO,
+                     '' AS BBG_ACCOUNT,
+                     COALESCE(TRIM(scd.model_portfolio_id), '') AS SCD_ACCOUNT,
+                     COALESCE(TRIM(scd.sst_custody_account_code), '') AS SST_ACCOUNT
+                 FROM reference.scd_model_portfolio scd
+                 WHERE CAST(scd.business_date AS DATE) BETWEEN (SELECT business_date FROM adjusted_date) - interval '7' day
+                     AND (SELECT business_date FROM adjusted_date) - interval '1' day
+                   and NOT EXISTS (
+                     SELECT 1
+                     FROM account_mapping_query fq
+                     WHERE COALESCE(TRIM(fq.SCD_ACCOUNT), '') = COALESCE(TRIM(scd.model_portfolio_id), '')
+                       AND COALESCE(TRIM(fq.SST_ACCOUNT), '') = COALESCE(TRIM(scd.sst_custody_account_code), '')
+                 )
+             ),
+             daily_counts AS (
+                 SELECT business_date, COUNT(*) AS record_count
+                 FROM unioned_data
+                 GROUP BY business_date
+             ),
+             average_count AS (
+                 SELECT AVG(record_count) AS avg_count
+                 FROM daily_counts
+             )
+        SELECT cast(avg_count as varchar) FROM average_count) T LIMIT 0"
+840cf1687f9a6e942e551717cf5e8923394e3044c321539ecb3ff06a187a122c,"/* cppi::840cf1687f9a6e942e551717cf5e8923394e3044c321539ecb3ff06a187a122c */
+SELECT * FROM (WITH params AS (
+            SELECT from_iso8601_date( NULL ) AS query_date
+        ),
+             adjusted_date AS (
+                 SELECT
+                     query_date,
+                     CASE
+                         WHEN day_of_week(query_date) = 1 THEN query_date - interval '3' day
+                         WHEN day_of_week(query_date) = 7 THEN query_date - interval '1' day
+                         ELSE query_date - interval '1' day
+                         END AS business_date
+                 FROM params
+             ),
+             account_mapping_query AS (
+                 SELECT
+                     date_format(pam.as_of_date, '%Y-%m-%d') AS BUSINESS_DATE,
+                     pam.mx_portfolio_id AS MUREX_PORTOFOLIO,
+                     pam.bbg_pfolio_id AS BBG_ACCOUNT,
+                     pam.model_portfolio AS SCD_ACCOUNT,
+                     pam.sst_account AS SST_ACCOUNT
+                 FROM reference.model_portfolio_account_mapping pam
+                 WHERE pam.as_of_date BETWEEN (SELECT business_date FROM adjusted_date) - interval '7' day
+                           AND (SELECT business_date FROM adjusted_date) - interval '1' day
+             ),
+             unioned_data AS (
+                 select COALESCE(BUSINESS_DATE, '') as BUSINESS_DATE,
+                        COALESCE(TRIM(MUREX_PORTOFOLIO), '') as MUREX_PORTOFOLIO,
+                        COALESCE(TRIM(BBG_ACCOUNT), '') as BBG_ACCOUNT,
+                        COALESCE(TRIM(SCD_ACCOUNT), '') as SCD_ACCOUNT,
+                        COALESCE(TRIM(SST_ACCOUNT), '') as SST_ACCOUNT
+                 FROM account_mapping_query
+
+                 UNION
+
+                 SELECT
+                     scd.business_date AS BUSINESS_DATE,
+                     '' AS MUREX_PORTOFOLIO,
+                     '' AS BBG_ACCOUNT,
+                     COALESCE(TRIM(scd.model_portfolio_id), '') AS SCD_ACCOUNT,
+                     COALESCE(TRIM(scd.sst_custody_account_code), '') AS SST_ACCOUNT
+                 FROM reference.scd_model_portfolio scd
+                 WHERE CAST(scd.business_date AS DATE) BETWEEN (SELECT business_date FROM adjusted_date) - interval '7' day
+                     AND (SELECT business_date FROM adjusted_date) - interval '1' day
+                   and NOT EXISTS (
+                     SELECT 1
+                     FROM account_mapping_query fq
+                     WHERE COALESCE(TRIM(fq.SCD_ACCOUNT), '') = COALESCE(TRIM(scd.model_portfolio_id), '')
+                       AND COALESCE(TRIM(fq.SST_ACCOUNT), '') = COALESCE(TRIM(scd.sst_custody_account_code), '')
+                 )
+             ),
+             daily_counts AS (
+                 SELECT business_date, COUNT(*) AS record_count
+                 FROM unioned_data
+                 GROUP BY business_date
+             ),
+             average_count AS (
+                 SELECT AVG(record_count) AS avg_count
+                 FROM daily_counts
+             )
+        SELECT cast(avg_count as varchar) FROM average_count) T LIMIT 0"
