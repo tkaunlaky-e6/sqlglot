@@ -168,18 +168,48 @@ def main():
     # Sort files for consistent numbering
     files_to_process.sort()
     
-    # Get the files in the specified range (convert to 0-based indexing)
-    selected_files = files_to_process[args.start-1:args.end]
+    # Filter out files that already have result files
+    files_to_process_filtered = []
+    skipped_files = []
     
-    print(f"Processing files {args.start} to {args.end} (out of {len(files_to_process)} total files)")
+    for file_path in files_to_process:
+        base, ext = os.path.splitext(file_path)
+        result_file_path = f"{base}_result{ext}"
+        
+        if os.path.exists(result_file_path):
+            skipped_files.append(os.path.basename(file_path))
+        else:
+            files_to_process_filtered.append(file_path)
+    
+    if skipped_files:
+        print(f"Skipping {len(skipped_files)} files that already have result files:")
+        for skipped in skipped_files:
+            print(f"  - {skipped}")
+    
+    if not files_to_process_filtered:
+        print("All files already have result files. Nothing to process.")
+        return
+    
+    # Get the files in the specified range (convert to 0-based indexing)
+    selected_files = files_to_process_filtered[args.start-1:args.end] if args.end <= len(files_to_process_filtered) else files_to_process_filtered[args.start-1:]
+    
+    print(f"Processing files {args.start} to {min(args.end, len(files_to_process_filtered))} (out of {len(files_to_process_filtered)} eligible files)")
     
     total_processed_count = 0
 
     # Process each selected file
     for i, file_path in enumerate(selected_files, start=args.start):
         print(f"\n{'='*60}")
-        print(f"Processing file {i}/{len(files_to_process)}: {os.path.basename(file_path)}")
+        print(f"Processing file {i}/{len(files_to_process_filtered)}: {os.path.basename(file_path)}")
         print(f"{'='*60}")
+        
+        # Double-check result file doesn't exist (in case it was created since we started)
+        base, ext = os.path.splitext(file_path)
+        result_file_path = f"{base}_result{ext}"
+        
+        if os.path.exists(result_file_path):
+            print(f"⚠️  Skipping: Result file already exists: {os.path.basename(result_file_path)}")
+            continue
         
         try:
             input_df = pd.read_csv(file_path)
@@ -200,13 +230,10 @@ def main():
                 continue
 
             # Generate output file path and save the results
-            base, ext = os.path.splitext(file_path)
-            output_file_path = f"{base}_result{ext}"
-
             df = pd.DataFrame(results)
-            df.to_csv(output_file_path, index=False)
+            df.to_csv(result_file_path, index=False)
             print(f"✅ Successfully converted {len(results)} queries.")
-            print(f"   Result saved to: {os.path.basename(output_file_path)}")
+            print(f"   Result saved to: {os.path.basename(result_file_path)}")
             total_processed_count += 1
 
         except FileNotFoundError:
