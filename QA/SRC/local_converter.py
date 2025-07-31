@@ -165,8 +165,15 @@ def main():
         print(f"❌ Error: Start number ({args.start}) is greater than end number ({args.end}).")
         return
 
-    # Sort files for consistent numbering
-    files_to_process.sort()
+    # Sort files for consistent numbering (handle numeric parts properly)
+    # This ensures part_1 comes before part_10, part_2 before part_20, etc.
+    import re
+    def natural_sort_key(filename):
+        # Extract numbers from filename and convert to int for proper sorting
+        parts = re.split(r'(\d+)', filename)
+        return [int(part) if part.isdigit() else part.lower() for part in parts]
+    
+    files_to_process.sort(key=natural_sort_key)
     
     # Filter out files that already have result files
     files_to_process_filtered = []
@@ -194,6 +201,11 @@ def main():
     selected_files = files_to_process_filtered[args.start-1:args.end] if args.end <= len(files_to_process_filtered) else files_to_process_filtered[args.start-1:]
     
     print(f"Processing files {args.start} to {min(args.end, len(files_to_process_filtered))} (out of {len(files_to_process_filtered)} eligible files)")
+    
+    # Show the order of files to be processed
+    print("\nFiles will be processed in this order:")
+    for idx, file_path in enumerate(selected_files, start=args.start):
+        print(f"  {idx}. {os.path.basename(file_path)}")
     
     total_processed_count = 0
 
