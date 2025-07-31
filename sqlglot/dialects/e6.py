@@ -1320,6 +1320,8 @@ class E6(Dialect):
             "DOUBLE",
             "TIMESTAMP",
             "DECIMAL",
+            "TIMESTAMP_TZ",
+            "JSON",
         }
 
         def _parse_cast(self, strict: bool, safe: t.Optional[bool] = None) -> exp.Expression:
@@ -1332,6 +1334,14 @@ class E6(Dialect):
 
             if isinstance(cast_expression, (exp.Cast, exp.TryCast)):
                 target_type = cast_expression.to.this
+
+                # Handle timestamp_tz as a special case
+                if target_type == exp.DataType.Type.USERDEFINED:
+                    # For user-defined types, check the kind in args
+                    kind = cast_expression.to.args.get("kind")
+                    if kind == "timestamp_tz":
+                        # Allow timestamp_tz as a valid cast type
+                        return cast_expression
 
                 if target_type.name not in self.SUPPORTED_CAST_TYPES:
                     self.raise_error(f"Unsupported cast type: {target_type}")
@@ -1412,6 +1422,7 @@ class E6(Dialect):
                 this=seq_get(args, 0), format=seq_get(args, 1)
             ),
             "FROM_UNIXTIME_WITHUNIT": _build_from_unixtime_withunit,
+            "FROM_ISO8601_TIMESTAMP": exp.FromISO8601Timestamp.from_arg_list,
             "GREATEST": exp.Max.from_arg_list,
             "JSON_EXTRACT": parser.build_extract_json_with_path(exp.JSONExtractScalar),
             "JSON_VALUE": parser.build_extract_json_with_path(exp.JSONExtractScalar),
@@ -1472,7 +1483,6 @@ class E6(Dialect):
             # "TO_DATE":  _build_datetime("TO_DATE", exp.DataType.Type.DATE),
             "TO_HEX": exp.Hex.from_arg_list,
             "TO_JSON": exp.JSONFormat.from_arg_list,
-            "TO_JSON_STRING": exp.JSONFormat.from_arg_list,
             "TO_TIMESTAMP": _build_datetime("TO_TIMESTAMP", exp.DataType.Type.TIMESTAMP),
             "TO_TIMESTAMP_NTZ": _build_datetime("TO_TIMESTAMP_NTZ", exp.DataType.Type.TIMESTAMP),
             "TO_UTF8": lambda args: exp.Encode(
@@ -1539,6 +1549,7 @@ class E6(Dialect):
             exp.DataType.Type.TINYTEXT: "VARCHAR",
             exp.DataType.Type.MEDIUMTEXT: "VARCHAR",
             exp.DataType.Type.DECIMAL: "DECIMAL",
+            exp.DataType.Type.JSON: "JSON",
         }
 
         # TODO:: Adithya, why there was need to override this method.
@@ -1682,9 +1693,50 @@ class E6(Dialect):
                 # Extract the name attributes of 'this' and 'unit'
                 value = expression.this.name
                 unit = expression.unit.name
+
+                # Convert plural forms to singular if not allowed
+                if not self.INTERVAL_ALLOWS_PLURAL_FORM:
+                    unit = self.TIME_PART_SINGULARS.get(unit, unit)
+
                 # Format the INTERVAL string
-                interval_str = f"INTERVAL {value} {unit}"
+                interval_str = f"INTERVAL '{value} {unit}'"
                 return interval_str
+            elif expression.this and not expression.unit:
+                # Handle compound intervals like '5 minutes 30 seconds'
+                value = (
+                    expression.this.name
+                    if hasattr(expression.this, "name")
+                    else str(expression.this)
+                )
+
+                # Parse compound interval and convert to E6 format
+                import re
+
+                # Pattern to match number-unit pairs in the compound interval
+                pattern = (
+                    r"(\d+)\s*(year|month|week|day|hour|minute|second|microsecond|millisecond)s?"
+                )
+                matches = re.findall(pattern, value.lower())
+
+                if matches:
+                    # Convert compound interval to sum of individual intervals
+                    interval_parts = []
+                    for num, unit in matches:
+                        # Convert plural to singular if needed
+                        if not self.INTERVAL_ALLOWS_PLURAL_FORM:
+                            unit = self.TIME_PART_SINGULARS.get(unit.upper() + "S", unit.upper())
+                        else:
+                            unit = unit.upper()
+                        interval_parts.append(f"INTERVAL '{num} {unit}'")
+
+                    # Join with + operator
+                    if len(interval_parts) > 1:
+                        return " + ".join(interval_parts)
+                    elif len(interval_parts) == 1:
+                        return interval_parts[0]
+
+                # If no pattern matches, return as-is with quotes
+                return f"INTERVAL '{value}'"
             else:
                 # Return an empty string if either 'this' or 'unit' is missing
                 return f"INTERVAL {expression.this if expression.this else ''} {expression.unit if expression.unit else ''}"
@@ -2033,7 +2085,7 @@ class E6(Dialect):
         def not_sql(self, expression: exp.Not) -> str:
             expr = expression.this
             if isinstance(expr, exp.Is):
-                return f"{expr.this} IS NOT {expr.expression}"
+                return f"{self.sql(expr.this)} IS NOT {self.sql(expr.expression)}"
             else:
                 return super().not_sql(expression)
 
@@ -2060,6 +2112,14 @@ class E6(Dialect):
         ) -> str:
             unix_expr = expression.this
             format_expr = expression.args.get("format")
+            scale_expr = expression.args.get("scale")
+
+            # If scale is seconds, use FROM_UNIXTIME_WITHUNIT
+            if scale_expr and scale_expr.this == "seconds":
+                return self.func("FROM_UNIXTIME_WITHUNIT", unix_expr, scale_expr)
+            # If scale is milliseconds, use FROM_UNIXTIME_WITHUNIT
+            if scale_expr and scale_expr.this == "milliseconds":
+                return self.func("FROM_UNIXTIME_WITHUNIT", unix_expr, scale_expr)
 
             if not format_expr:
                 return self.func("FROM_UNIXTIME", unix_expr)
@@ -2072,6 +2132,9 @@ class E6(Dialect):
             return self.func(
                 "FORMAT_TIMESTAMP", self.func("FROM_UNIXTIME", unix_expr), format_expr_modified
             )
+
+        def from_iso8601_timestamp_sql(self, expression: exp.FromISO8601Timestamp) -> str:
+            return f"CAST({self.sql(expression.this)} AS timestamp_tz)"
 
         def timestamp_diff_sql(self, expression: exp.TimestampDiff) -> str:
             return self.func(
@@ -2094,15 +2157,32 @@ class E6(Dialect):
         def json_format_sql(self, expression: exp.JSONFormat) -> str:
             inner = expression.this
             if isinstance(inner, exp.Cast) and inner.to.this == exp.DataType.Type.JSON:
-                return self.func("TO_JSON_STRING", inner.this)
+                return self.func("TO_JSON", inner.this)
             return self.func("TO_JSON", inner)
 
         def json_extract_sql(self, e: exp.JSONExtract | exp.JSONExtractScalar):
             path = e.expression
             if self.from_dialect == "databricks":
-                path = "$." + path if not path.startswith("$") else path
-                path = add_single_quotes(path)
+                if not self.sql(path).startswith("'$."):
+                    path = add_single_quotes("$." + self.sql(path))
+                else:
+                    path = self.sql(path)
+
             return self.func("JSON_EXTRACT", e.this, path)
+
+        def split_sql(self, expression: exp.Split | exp.RegexpSplit):
+            this = expression.this
+            delimitter = expression.expression
+            if (
+                this
+                and delimitter
+                and this.is_string
+                and delimitter.is_string
+                and delimitter.this not in this.this
+                and not len(expression.args) == 3
+            ):
+                return f"{this}"
+            return rename_func("SPLIT")(self, expression)
 
         # Define how specific expressions should be transformed into SQL strings
         TRANSFORMS = {
@@ -2116,6 +2196,7 @@ class E6(Dialect):
             exp.Array: array_sql,
             exp.ArrayAgg: rename_func("ARRAY_AGG"),
             exp.ArrayConcat: rename_func("ARRAY_CONCAT"),
+            exp.ArrayIntersect: rename_func("ARRAY_INTERSECT"),
             exp.ArrayContains: rename_func("ARRAY_CONTAINS"),
             exp.ArrayFilter: filter_array_sql,
             exp.ArrayToString: rename_func("ARRAY_JOIN"),
@@ -2164,9 +2245,12 @@ class E6(Dialect):
             exp.Explode: explode_sql,
             exp.Extract: extract_sql,
             exp.FirstValue: rename_func("FIRST_VALUE"),
+            exp.Format: rename_func("FORMAT"),
+            exp.FormatDatetime: rename_func("FORMAT_DATETIME"),
             exp.FromTimeZone: lambda self, e: self.func(
                 "CONVERT_TIMEZONE", e.args.get("zone"), "'UTC'", e.this
             ),
+            exp.FromISO8601Timestamp: from_iso8601_timestamp_sql,
             exp.GenerateSeries: generateseries_sql,
             exp.GroupConcat: string_agg_sql,
             exp.Hex: rename_func("TO_HEX"),
@@ -2192,9 +2276,10 @@ class E6(Dialect):
             exp.RegexpLike: lambda self, e: self.func("REGEXP_LIKE", e.this, e.expression),
             # here I handled replacement arg carefully because, sometimes if replacement arg is not provided/extracted then it is getting None there overriding in E6
             exp.RegexpReplace: rename_func("REGEXP_REPLACE"),
-            exp.RegexpSplit: rename_func("SPLIT"),
+            exp.RegexpSplit: split_sql,
             # exp.Select: select_sql,
-            exp.Split: rename_func("SPLIT"),
+            exp.Space: lambda self, e: self.func("REPEAT", exp.Literal.string(" "), e.this),
+            exp.Split: split_sql,
             exp.SplitPart: rename_func("SPLIT_PART"),
             exp.Stddev: rename_func("STDDEV"),
             exp.StddevPop: rename_func("STDDEV_POP"),
@@ -2348,6 +2433,14 @@ class E6(Dialect):
             "percent_rank",
             "rank",
             "row_number",
+            "sunday",
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "variant"
         }
 
         UNSIGNED_TYPE_MAPPING = {
