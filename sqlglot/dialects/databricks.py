@@ -105,6 +105,7 @@ class Databricks(Spark):
             "DATE_ADD": build_date_delta(exp.DateAdd),
             "DATEDIFF": build_date_delta(exp.DateDiff),
             "DATE_DIFF": build_date_delta(exp.DateDiff),
+            "TIMEDIFF": build_date_delta(exp.TimeDiff),
             "GETDATE": exp.CurrentTimestamp.from_arg_list,
             "GET_JSON_OBJECT": _build_json_extract,
             "TO_DATE": build_formatted_time(exp.TsOrDsToDate, "databricks"),
@@ -112,6 +113,9 @@ class Databricks(Spark):
             "REGEXP_SUBSTR": exp.RegexpExtract.from_arg_list,
             "RTRIM": lambda args: build_trim(args, is_left=False),
             "SPLIT_PART": exp.SplitPart.from_arg_list,
+            "TIMESTAMP_MILLIS": lambda args: exp.UnixToTime(
+                this=seq_get(args, 0), scale=exp.UnixToTime.MILLIS
+            ),
             "TIMEDIFF": lambda args: exp.TimestampDiff(
                 unit=seq_get(args, 0), this=seq_get(args, 1), expression=seq_get(args, 2)
             ),
@@ -134,6 +138,7 @@ class Databricks(Spark):
             **Spark.Generator.TRANSFORMS,
             exp.DateAdd: date_delta_sql("DATEADD"),
             exp.DateDiff: date_delta_sql("DATEDIFF"),
+            exp.TimeDiff: date_delta_sql("TIMEDIFF"),
             exp.DatetimeAdd: lambda self, e: self.func(
                 "TIMESTAMPADD", e.unit, e.expression, e.this
             ),
@@ -157,6 +162,7 @@ class Databricks(Spark):
             exp.ToChar: lambda self, e: self.function_fallback_sql(e),
             exp.SplitPart: rename_func("SPLIT_PART"),
             exp.Trim: _trim_sql,
+            exp.UnixToTime: lambda self, e: self.timestamp_millis_sql(e),
         }
 
         TRANSFORMS.pop(exp.TryCast)
@@ -184,6 +190,59 @@ class Databricks(Spark):
         ) -> str:
             expression.set("this", True)  # trigger ALWAYS in super class
             return super().generatedasidentitycolumnconstraint_sql(expression)
+
+        def timediff_sql(self, expression: exp.DateDiff) -> str:
+            """
+            Generate TIMEDIFF SQL for Databricks dialect.
+
+            This function is responsible for converting an exp.DateDiff AST node back into
+            the correct Databricks SQL syntax for the TIMEDIFF function.
+
+            How it works:
+                1. Takes an exp.DateDiff expression (which was parsed from TIMEDIFF(...)).
+                2. Uses the date_delta_sql helper function with "TIMEDIFF" as the function name.
+                3. The helper function generates: TIMEDIFF(unit, start, end)
+
+            Args:
+                expression (exp.DateDiff): The AST node representing a date difference operation
+                    - expression.unit: The time unit (e.g., MONTH, YEAR, DAY)
+                    - expression.expression: The start date/timestamp
+                    - expression.this: The end date/timestamp
+
+            Returns:
+                str: The SQL string in Databricks format, e.g., "TIMEDIFF(MONTH, start_date, end_date)"
+
+            Example:
+                Input AST: DateDiff(unit=Var(this=MONTH), expression=timestamp1, this=timestamp2)
+                Output SQL: "TIMEDIFF(MONTH, timestamp1, timestamp2)"
+            """
+            # Use the generic date_delta_sql helper to generate the correct SQL function call
+            return date_delta_sql("TIMEDIFF")(self, expression)
+
+        def timestamp_millis_sql(self, expression: exp.UnixToTime) -> str:
+            """
+            Generate TIMESTAMP_MILLIS SQL for Databricks dialect.
+
+            This function is responsible for converting an exp.UnixToTime AST node back into
+            the correct Databricks SQL syntax for the TIMESTAMP_MILLIS function.
+
+            How it works:
+                1. Takes an exp.UnixToTime expression (which was parsed from TIMESTAMP_MILLIS(...)).
+                2. Generates: TIMESTAMP_MILLIS(unix_timestamp_milliseconds)
+
+            Args:
+                expression (exp.UnixToTime): The AST node representing a Unix timestamp conversion
+                    - expression.this: The Unix timestamp in milliseconds
+                    - expression.scale: The scale (should be MILLIS for TIMESTAMP_MILLIS)
+
+            Returns:
+                str: The SQL string in Databricks format, e.g., "TIMESTAMP_MILLIS(1752358800000)"
+
+            Example:
+                Input AST: UnixToTime(this=1752358800000, scale=MILLIS)
+                Output SQL: "TIMESTAMP_MILLIS(1752358800000)"
+            """
+            return self.func("TIMESTAMP_MILLIS", expression.this)
 
         def jsonpath_sql(self, expression: exp.JSONPath) -> str:
             expression.set("escape", None)

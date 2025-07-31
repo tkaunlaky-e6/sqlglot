@@ -1501,6 +1501,10 @@ class E6(Dialect):
             "WEEKISO": exp.Week.from_arg_list,
             "WEEKOFYEAR": exp.WeekOfYear.from_arg_list,
             "YEAR": exp.Year.from_arg_list,
+            "TIMEDIFF": build_datediff(exp.TimeDiff),
+            "TIMESTAMP_MILLIS": lambda args: exp.UnixToTime(
+                this=seq_get(args, 0), scale=exp.UnixToTime.MILLIS
+            ),
         }
 
         FUNCTION_PARSERS = {
@@ -1516,7 +1520,7 @@ class E6(Dialect):
     class Generator(generator.Generator):
         """
         The Generator class is responsible for converting an abstract syntax tree (AST) back into a SQL string
-        that adheres to a specific dialect’s syntax. When creating a custom dialect, you can override the Generator
+        that adheres to a specific dialect's syntax. When creating a custom dialect, you can override the Generator
         class to define how various expressions and data types should be formatted in your dialect.
         """
 
@@ -2137,6 +2141,7 @@ class E6(Dialect):
             return f"CAST({self.sql(expression.this)} AS timestamp_tz)"
 
         def timestamp_diff_sql(self, expression: exp.TimestampDiff) -> str:
+        def timestamp_diff_sql(self, expression: exp.TimestampDiff | exp.TimeDiff) -> str:
             return self.func(
                 "TIMESTAMP_DIFF", expression.this, expression.expression, unit_to_str(expression)
             )
@@ -2184,6 +2189,71 @@ class E6(Dialect):
                 return f"{this}"
             return rename_func("SPLIT")(self, expression)
 
+        def timediff_sql(self, expression: exp.TimeDiff) -> str:
+            """
+            Generate TIMEDIFF SQL for e6data dialect.
+            
+            Maps TIMEDIFF to e6data's native TIMESTAMP_DIFF function.
+            e6data TIMESTAMP_DIFF signature: TIMESTAMP_DIFF(timestamp_expr1, timestamp_expr2, unit)
+            Returns the difference between two timestamps in the specified unit.
+            
+            Supports all units: MONTH, YEAR, DAY, HOUR, MINUTE, SECOND, etc.
+            
+            Args:
+                expression (exp.TimeDiff): The TimeDiff AST node
+                
+            Returns:
+                str: e6data TIMESTAMP_DIFF SQL expression
+                
+            Example:
+                TIMEDIFF(MONTH, '2021-02-28 12:00:00', '2021-03-28 12:00:00') 
+                → TIMESTAMP_DIFF('2021-02-28 12:00:00', '2021-03-28 12:00:00', 'MONTH')
+            """
+            unit = unit_to_str(expression)
+            timestamp_expr1 = expression.this
+            timestamp_expr2 = expression.expression
+            
+            # e6data TIMESTAMP_DIFF signature: TIMESTAMP_DIFF(timestamp_expr1, timestamp_expr2, unit)
+            # Use the actual unit from the expression
+            return self.func("TIMESTAMP_DIFF", timestamp_expr1, timestamp_expr2, unit)
+
+        def timestamp_millis_sql(self, expression: exp.UnixToTime) -> str:
+            """
+            Generate UnixToTime SQL for E6 dialect.
+
+            This function converts TIMESTAMP_MILLIS from Databricks to E6 compatible SQL.
+            Since E6 doesn't support TIMESTAMP_MILLIS natively, we convert milliseconds to seconds
+            and use FROM_UNIXTIME to get a timestamp.
+
+            How it works:
+                1. Takes an exp.UnixToTime expression (parsed from TIMESTAMP_MILLIS(...))
+                2. If scale is MILLIS, converts milliseconds to seconds by dividing by 1000
+                3. Uses FROM_UNIXTIME to convert Unix timestamp to datetime
+
+            Args:
+                expression (exp.UnixToTime): The AST node representing a Unix timestamp conversion
+                    - expression.this: The Unix timestamp value
+                    - expression.scale: The scale (MILLIS, SECONDS, etc.)
+
+            Returns:
+                str: The SQL string in E6 format
+
+            Example:
+                Input: TIMESTAMP_MILLIS(1752358800000) from Databricks
+                Output: FROM_UNIXTIME(1752358800000/1000)
+                Result: 2025-07-08 10:00:00 UTC
+            """
+            scale = expression.args.get("scale")
+            timestamp = expression.this
+
+            # If scale is MILLIS, convert to seconds by dividing by 1000
+            if scale == exp.UnixToTime.MILLIS:
+                # Convert milliseconds to seconds
+                timestamp = exp.Div(this=timestamp, expression=exp.Literal.number(1000))
+            
+            # Use FROM_UNIXTIME to convert Unix timestamp to datetime
+            return self.func("FROM_UNIXTIME", timestamp)
+
         # Define how specific expressions should be transformed into SQL strings
         TRANSFORMS = {
             **generator.Generator.TRANSFORMS,
@@ -2230,8 +2300,6 @@ class E6(Dialect):
             exp.DateDiff: lambda self, e: self.func(
                 "DATE_DIFF",
                 unit_to_str(e),
-                e.expression,
-                e.this,
             ),
             exp.DateSub: rename_func("DATE_SUB"),
             exp.DateTrunc: lambda self, e: self.func("DATE_TRUNC", unit_to_str(e), e.this),
@@ -2302,6 +2370,7 @@ class E6(Dialect):
                 "TIMESTAMP_ADD", unit_to_str(e), e.expression, e.this
             ),
             exp.TimestampDiff: timestamp_diff_sql,
+            exp.TimeDiff: timestamp_diff_sql,
             exp.TimestampTrunc: lambda self, e: self.func("DATE_TRUNC", unit_to_str(e), e.this),
             exp.ToChar: tochar_sql,
             # WE REMOVE ONLY WHITE SPACES IN TRIM FUNCTION
@@ -2322,7 +2391,7 @@ class E6(Dialect):
                 e.this,
             ),
             exp.TsOrDsToDate: TsOrDsToDate_sql,
-            exp.UnixToTime: from_unixtime_sql,
+            exp.UnixToTime: lambda self, e: self.timestamp_millis_sql(e),
             exp.UnixToStr: from_unixtime_sql,
             exp.VarMap: map_sql,
             exp.Upper: rename_func("UPPER"),

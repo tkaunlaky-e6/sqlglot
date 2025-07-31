@@ -120,8 +120,8 @@ def convert_query_and_get_stats(query: str, from_sql: str, to_sql: str = "e6", f
         }
 
 def main():
-    parser = argparse.ArgumentParser(description="Convert all SQL query files in a directory.")
-    parser.add_argument("--input-dir", required=True, help="Path to the input directory containing CSV files.")
+    parser = argparse.ArgumentParser(description="Convert all SQL query files in subdirectories.")
+    parser.add_argument("--input-dir", required=True, help="Path to the input directory containing subdirectories with CSV files.")
     parser.add_argument("--query-column", default="SQL_QUERY", help="The name of the column containing the SQL queries.")
     parser.add_argument("--from", dest="from_sql", default="snowflake", help="The source SQL dialect.")
     parser.add_argument("--to", dest="to_sql", default="e6", help="The target SQL dialect.")
@@ -137,55 +137,119 @@ def main():
             print(f"Error decoding feature flags: {je}")
             return
 
-    # Find all CSV files in the directory, excluding ones that are already results.
-    all_csv_files = glob.glob(os.path.join(args.input_dir, '*.csv'))
-    files_to_process = [f for f in all_csv_files if '_result.csv' not in os.path.basename(f)]
-
-    if not files_to_process:
-        print(f"No non-result CSV files found to process in '{args.input_dir}'.")
+    # Check if input directory exists
+    if not os.path.isdir(args.input_dir):
+        print(f"❌ Error: Input directory '{args.input_dir}' does not exist.")
         return
 
-    print(f"Found {len(files_to_process)} file(s) to process.")
-    processed_count = 0
+    # Get all subdirectories
+    subdirs = []
+    for item in os.listdir(args.input_dir):
+        item_path = os.path.join(args.input_dir, item)
+        if os.path.isdir(item_path):
+            subdirs.append(item_path)
 
-    # Process each file.
-    for file_path in files_to_process:
-        print(f"\n--- Processing file: {os.path.basename(file_path)} ---")
-        try:
-            input_df = pd.read_csv(file_path)
+    if not subdirs:
+        print(f"No subdirectories found in '{args.input_dir}'.")
+        return
 
-            if args.query_column not in input_df.columns:
-                print(f"⚠️  Skipping: Query column '{args.query_column}' not found.")
-                continue
+    print(f"Found {len(subdirs)} subdirectories to process.")
+    
+    # Filter out directories that already have result files
+    eligible_dirs = []
+    skipped_dirs = []
+    
+    for subdir in subdirs:
+        subdir_name = os.path.basename(subdir)
+        # Check if any *_result.csv files exist in this subdirectory
+        result_files = glob.glob(os.path.join(subdir, '*_result.csv'))
+        if result_files:
+            skipped_dirs.append(subdir_name)
+        else:
+            eligible_dirs.append(subdir)
 
-            results = []
-            for index, row in tqdm(input_df.iterrows(), total=input_df.shape[0], desc="Converting Queries"):
-                query = row[args.query_column]
-                if query and isinstance(query, str) and query.strip():
-                    result = convert_query_and_get_stats(query, args.from_sql, args.to_sql, feature_flags)
-                    results.append(result)
-            
-            if not results:
-                print("No queries found or processed in this file.")
-                continue
+    print(f"  - Eligible for processing: {len(eligible_dirs)}")
+    print(f"  - Skipped (already have result files): {len(skipped_dirs)}")
+    
+    if skipped_dirs:
+        print("Skipped directories:")
+        for dir_name in skipped_dirs:
+            print(f"  - {dir_name}")
 
-            # Generate output file path and save the results.
-            base, ext = os.path.splitext(file_path)
-            output_file_path = f"{base}_result{ext}"
+    if not eligible_dirs:
+        print("No directories eligible for processing. All directories already have result files.")
+        return
 
-            df = pd.DataFrame(results)
-            df.to_csv(output_file_path, index=False)
-            print(f"✅ Successfully converted {len(results)} queries.")
-            print(f"   Result saved to: {os.path.basename(output_file_path)}")
-            processed_count += 1
+    total_processed_count = 0
+    total_successful_dirs = 0
 
-        except FileNotFoundError:
-            print(f"❌ Error: Input file not found at {file_path}")
-        except Exception as e:
-            print(f"❌ An unexpected error occurred while processing {os.path.basename(file_path)}: {e}")
+    # Process each eligible subdirectory
+    for subdir in eligible_dirs:
+        subdir_name = os.path.basename(subdir)
+        print(f"\n{'='*60}")
+        print(f"Processing subdirectory: {subdir_name}")
+        print(f"{'='*60}")
+        
+        # Find all CSV files in the subdirectory, excluding ones that are already results.
+        all_csv_files = glob.glob(os.path.join(subdir, '*.csv'))
+        files_to_process = [f for f in all_csv_files if '_result.csv' not in os.path.basename(f)]
 
-    print(f"\n--- All tasks completed. ---")
-    print(f"Processed {processed_count} out of {len(files_to_process)} targeted files.")
+        if not files_to_process:
+            print(f"⚠️  No non-result CSV files found in '{subdir_name}'.")
+            continue
+
+        print(f"Found {len(files_to_process)} file(s) to process in {subdir_name}.")
+        dir_processed_count = 0
+
+        # Process each file in the subdirectory
+        for file_path in files_to_process:
+            print(f"\n--- Processing file: {os.path.basename(file_path)} ---")
+            try:
+                input_df = pd.read_csv(file_path)
+
+                if args.query_column not in input_df.columns:
+                    print(f"⚠️  Skipping: Query column '{args.query_column}' not found.")
+                    continue
+
+                results = []
+                for index, row in tqdm(input_df.iterrows(), total=input_df.shape[0], desc="Converting Queries"):
+                    query = row[args.query_column]
+                    if query and isinstance(query, str) and query.strip():
+                        result = convert_query_and_get_stats(query, args.from_sql, args.to_sql, feature_flags)
+                        results.append(result)
+                
+                if not results:
+                    print("No queries found or processed in this file.")
+                    continue
+
+                # Generate output file path and save the results.
+                base, ext = os.path.splitext(file_path)
+                output_file_path = f"{base}_result{ext}"
+
+                df = pd.DataFrame(results)
+                df.to_csv(output_file_path, index=False)
+                print(f"✅ Successfully converted {len(results)} queries.")
+                print(f"   Result saved to: {os.path.basename(output_file_path)}")
+                dir_processed_count += 1
+                total_processed_count += 1
+
+            except FileNotFoundError:
+                print(f"❌ Error: Input file not found at {file_path}")
+            except Exception as e:
+                print(f"❌ An unexpected error occurred while processing {os.path.basename(file_path)}: {e}")
+
+        if dir_processed_count > 0:
+            total_successful_dirs += 1
+            print(f"\n✅ Completed processing {subdir_name}: {dir_processed_count} files processed")
+        else:
+            print(f"\n⚠️  No files were successfully processed in {subdir_name}")
+
+    print(f"\n{'='*60}")
+    print(f"--- ALL TASKS COMPLETED ---")
+    print(f"{'='*60}")
+    print(f"Total subdirectories processed: {total_successful_dirs}")
+    print(f"Total files processed: {total_processed_count}")
+    print(f"Directories skipped (already had result files): {len(skipped_dirs)}")
 
 
 if __name__ == "__main__":
