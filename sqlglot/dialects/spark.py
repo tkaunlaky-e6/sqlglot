@@ -185,6 +185,11 @@ class Spark(Spark2):
         SUPPORTS_UNIX_SECONDS = True
         SUPPORTS_DECODE_CASE = True
 
+        # Common keywords that are reserved in Spark SQL and need to be quoted as identifiers
+        RESERVED_KEYWORDS = {
+            "name", "date", "hour", "year", "month", "'day'", "minute", "second"
+        }
+
         TYPE_MAPPING = {
             **Spark2.Generator.TYPE_MAPPING,
             exp.DataType.Type.MONEY: "DECIMAL(15, 4)",
