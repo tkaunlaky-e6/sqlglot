@@ -16,6 +16,7 @@ from sqlglot import parse_one
 from guardrail.main import StorageServiceClient
 from guardrail.main import extract_sql_components_per_table_with_alias, get_table_infos
 from guardrail.rules_validator import validate_queries
+from optimization.profiling.profiling_middleware import ProfilingMiddleware  # Import the profiling middleware
 from apis.utils.helpers import (
     strip_comment,
     unsupported_functionality_identifiers,
@@ -47,6 +48,7 @@ STORAGE_ENGINE_PORT = os.getenv("STORAGE_ENGINE_PORT", 9005)
 storage_service_client = None
 
 app = FastAPI()
+app.add_middleware(ProfilingMiddleware)  # Add the profiling middleware to the app
 
 logger = logging.getLogger(__name__)
 
