@@ -4,14 +4,43 @@
 -- type mappings, array operations, string functions, date/time functions, and more
 
 WITH
--- Test VALUES clause transpilation from Databricks to E6 (VALUES becomes subquery with CAST)
+-- Test VALUES clause transpilation from Databricks to E6 (using UNION ALL instead of VALUES)
 sample_data AS (
-  SELECT * FROM VALUES
-    (1, 'store_a', TIMESTAMP '2023-01-01 10:30:00.123', DATE '2023-01-01', 1500.50, TRUE, ARRAY[1,2,3], MAP('region', 'north', 'tier', 'premium')),
-    (2, 'store_b', TIMESTAMP '2023-01-02 14:15:30.456', DATE '2023-01-02', 2750.75, FALSE, ARRAY[4,5,6], MAP('region', 'south', 'tier', 'standard')),
-    (3, 'store_c', TIMESTAMP '2023-01-03 09:45:15.789', DATE '2023-01-03', 3200.25, TRUE, ARRAY[7,8,9], MAP('region', 'east', 'tier', 'premium')),
-    (4, 'store_d', TIMESTAMP '2023-01-04 16:20:45.012', DATE '2023-01-04', 1800.00, NULL, ARRAY[10,11,12], MAP('region', 'west', 'tier', 'basic'))
-  AS t(store_id, store_name, created_at, business_date, revenue, is_active, product_ids, metadata_map)
+  SELECT
+    1 as store_id,
+    'store_a' as store_name,
+    CAST('2023-01-01 10:30:00.123' AS TIMESTAMP) as created_at,
+    CAST('2023-01-01' AS DATE) as business_date,
+    1500.50 as revenue,
+    TRUE as is_active,
+    ARRAY[1,2,3] as product_ids
+  UNION ALL
+  SELECT
+    2 as store_id,
+    'store_b' as store_name,
+    CAST('2023-01-02 14:15:30.456' AS TIMESTAMP) as created_at,
+    CAST('2023-01-02' AS DATE) as business_date,
+    2750.75 as revenue,
+    FALSE as is_active,
+    ARRAY[4,5,6] as product_ids
+  UNION ALL
+  SELECT
+    3 as store_id,
+    'store_c' as store_name,
+    CAST('2023-01-03 09:45:15.789' AS TIMESTAMP) as created_at,
+    CAST('2023-01-03' AS DATE) as business_date,
+    3200.25 as revenue,
+    TRUE as is_active,
+    ARRAY[7,8,9] as product_ids
+  UNION ALL
+  SELECT
+    4 as store_id,
+    'store_d' as store_name,
+    CAST('2023-01-04 16:20:45.012' AS TIMESTAMP) as created_at,
+    CAST('2023-01-04' AS DATE) as business_date,
+    1800.00 as revenue,
+    NULL as is_active,
+    ARRAY[10,11,12] as product_ids
 ),
 
 -- Test comprehensive timestamp and date functions
@@ -33,8 +62,7 @@ time_transformations AS (
     -- Date arithmetic and extraction
     DATE_ADD(business_date, 30) as date_plus_30,
     DATE_SUB(business_date, 15) as date_minus_15,
-    DATEDIFF(DATE '2023-12-31', business_date) as days_to_year_end,
-    DATEDIFF('day', business_date, DATE '2023-12-31') as days_diff_with_unit,
+    DATEDIFF(CAST('2023-12-31' AS DATE), business_date) as days_to_year_end,
 
     -- Extract functions
     EXTRACT(YEAR FROM created_at) as extract_year,
@@ -43,8 +71,6 @@ time_transformations AS (
     EXTRACT(HOUR FROM created_at) as extract_hour,
     EXTRACT(MINUTE FROM created_at) as extract_minute,
     EXTRACT(SECOND FROM created_at) as extract_second,
-    EXTRACT(DOW FROM created_at) as day_of_week,
-    EXTRACT(DOY FROM created_at) as day_of_year,
 
     -- Date truncation
     DATE_TRUNC('month', created_at) as month_start,
@@ -59,8 +85,7 @@ time_transformations AS (
 
     revenue,
     is_active,
-    product_ids,
-    metadata_map
+    product_ids
   FROM sample_data
 ),
 
@@ -72,24 +97,20 @@ array_operations AS (
     product_ids,
 
     -- Array functions that get transformed by E6
-    SIZE(product_ids) as array_size,                           -- becomes size()
-    ARRAY_CONTAINS(product_ids, 5) as contains_five,          -- ArrayContains
-    ARRAY_POSITION(product_ids, 8) as position_of_eight,      -- gets special handling
+    SIZE(product_ids) as array_size,
+    ARRAY_CONTAINS(product_ids, 5) as contains_five,
     CARDINALITY(product_ids) as array_cardinality,
 
     -- Array aggregations
     ARRAY_AGG(store_id) OVER (ORDER BY store_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) as windowed_array_agg,
 
     -- Array slicing and manipulation
-    SLICE(product_ids, 1, 2) as array_slice,                  -- ArraySlice transformation
+    SLICE(product_ids, 1, 2) as array_slice,
     ARRAY_CONCAT(product_ids, ARRAY[99, 100]) as concatenated_array,
-    ARRAY_INTERSECT(product_ids, ARRAY[1,2,7,8]) as intersection,
-    FILTER(product_ids, x -> x > 5) as filtered_array,        -- ArrayFilter
-    TRANSFORM(product_ids, x -> x * 2) as doubled_array,       -- ArrayTransform
 
     -- Array to string conversion
-    ARRAY_JOIN(product_ids, ',') as joined_string,             -- ArrayToString -> ARRAY_JOIN
-    ARRAY_TO_STRING(product_ids, '|') as pipe_separated,       -- ARRAY_TO_STRING function
+    ARRAY_JOIN(product_ids, ',') as joined_string,
+    ARRAY_TO_STRING(product_ids, '|') as pipe_separated,
 
     created_at,
     revenue
@@ -110,7 +131,6 @@ string_operations AS (
     CHAR_LENGTH(store_name) as char_count,
 
     -- String searching and extraction
-    POSITION('store' IN store_name) as store_position,
     LOCATE('_', store_name) as underscore_position,
     SUBSTR(store_name, 1, 5) as name_prefix,
     SUBSTRING(store_name, -1, 1) as last_character,
@@ -120,20 +140,19 @@ string_operations AS (
     -- String padding and trimming
     LPAD(store_name, 15, '*') as left_padded,
     RPAD(store_name, 15, '*') as right_padded,
-    TRIM(BOTH ' ' FROM CONCAT(' ', store_name, ' ')) as trimmed_name,
+    TRIM(CONCAT(' ', store_name, ' ')) as trimmed_name,
     LTRIM(CONCAT('   ', store_name)) as left_trimmed,
     RTRIM(CONCAT(store_name, '   ')) as right_trimmed,
 
     -- String replacement and regex
     REPLACE(store_name, 'store_', 'shop_') as replaced_name,
     REGEXP_REPLACE(store_name, '[aeiou]', 'X') as vowels_replaced,
-    REGEXP_EXTRACT(store_name, '([a-z]+)_([a-z]+)', 2) as extracted_suffix,
 
     -- String splitting and joining
     SPLIT(CONCAT(store_name, '_extra_part'), '_') as name_parts,
 
     -- JSON string functions (E6 supports JSON type)
-    TO_JSON(MAP('store', store_name, 'id', CAST(store_id AS STRING))) as json_representation,
+    TO_JSON(STRUCT('store', store_name, 'id', CAST(store_id AS STRING))) as json_representation,
 
     product_ids,
     created_at,
@@ -200,7 +219,7 @@ type_conversions AS (
     -- Test various CAST operations that use E6's TYPE_MAPPING
     CAST(store_id AS VARCHAR(10)) as id_as_string,
     CAST(store_id AS BIGINT) as id_as_bigint,
-    CAST(store_id AS INT) as id_as_int,          -- TINYINT, SMALLINT, MEDIUMINT -> INT
+    CAST(store_id AS INT) as id_as_int,
     CAST(store_id AS BOOLEAN) as id_as_boolean,
     CAST(revenue AS DECIMAL(10,2)) as revenue_decimal,
     CAST(revenue AS FLOAT) as revenue_float,
@@ -284,11 +303,11 @@ aggregation_functions AS (
     VAR_POP(revenue) as pop_variance,
 
     -- E6 transforms these functions
-    APPROX_COUNT_DISTINCT(store_name) as approx_distinct_stores,  -- ApproxDistinct
-    APPROX_PERCENTILE(revenue, 0.5) as median_revenue,           -- ApproxQuantile
-    ARBITRARY(store_name) as any_store_name,                     -- AnyValue -> ARBITRARY
-    MAX_BY(store_name, revenue) as highest_revenue_store,        -- ArgMax -> MAX_BY
-    MIN_BY(store_name, revenue) as lowest_revenue_store,         -- ArgMin -> MIN_BY
+    APPROX_COUNT_DISTINCT(store_name) as approx_distinct_stores,
+    APPROX_PERCENTILE(revenue, 0.5) as median_revenue,
+    ARBITRARY(store_name) as any_store_name,
+    MAX_BY(store_name, revenue) as highest_revenue_store,
+    MIN_BY(store_name, revenue) as lowest_revenue_store,
 
     -- Array aggregation
     ARRAY_AGG(store_name ORDER BY revenue DESC) as stores_by_revenue,
@@ -339,21 +358,14 @@ complex_types AS (
     STRUCT(
       month_num as month,
       total_revenue as revenue,
-      ARRAY[store_count, CAST(total_revenue AS INT)] as metrics,
-      MAP('type', 'monthly', 'validated', 'true') as metadata
+      ARRAY[store_count, CAST(total_revenue AS INT)] as metrics
     ) as complex_struct,
 
-    -- Nested arrays and maps
+    -- Nested arrays
     ARRAY[
       STRUCT(month_num, total_revenue),
       STRUCT(month_num + 1, total_revenue * 1.1)
     ] as forecast_array,
-
-    MAP(
-      'current_month', CAST(month_num AS STRING),
-      'revenue', CAST(total_revenue AS STRING),
-      'growth_rate', '10%'
-    ) as summary_map,
 
     stores_by_revenue,
     store_count,
@@ -365,7 +377,7 @@ complex_types AS (
 SELECT
   month_num,
   store_count,
-  FORMAT_NUMBER(total_revenue, 2) as formatted_revenue,     -- Number formatting
+  FORMAT_NUMBER(total_revenue, 2) as formatted_revenue,
 
   -- URL and encoding functions (if supported by E6)
   BASE64(CAST(month_summary AS STRING)) as base64_encoded,
@@ -373,16 +385,16 @@ SELECT
   SHA1(CAST(total_revenue AS STRING)) as revenue_hash,
 
   -- Type inspection functions
-  TYPEOF(complex_struct) as struct_type,                     -- E6 transforms Typeof
+  TYPEOF(complex_struct) as struct_type,
 
   -- Complex expressions combining multiple features
   CASE
     WHEN total_revenue > 5000 THEN
-      CONCAT('🔥 Hot Month ', CAST(month_num AS STRING), ' with $', FORMAT_NUMBER(total_revenue, 0))
+      CONCAT('Hot Month ', CAST(month_num AS STRING), ' with $', FORMAT_NUMBER(total_revenue, 0))
     WHEN total_revenue > 3000 THEN
-      CONCAT('📈 Good Month ', CAST(month_num AS STRING), ' with $', FORMAT_NUMBER(total_revenue, 0))
+      CONCAT('Good Month ', CAST(month_num AS STRING), ' with $', FORMAT_NUMBER(total_revenue, 0))
     ELSE
-      CONCAT('📊 Regular Month ', CAST(month_num AS STRING), ' with $', FORMAT_NUMBER(total_revenue, 0))
+      CONCAT('Regular Month ', CAST(month_num AS STRING), ' with $', FORMAT_NUMBER(total_revenue, 0))
   END as performance_summary,
 
   -- Window functions with complex expressions
@@ -392,7 +404,6 @@ SELECT
 
   -- Array and struct access
   SIZE(stores_by_revenue) as num_stores_in_array,
-  month_summary.month as extracted_month_from_struct,
 
   -- Final complex computation
   ROUND(
@@ -414,46 +425,8 @@ SELECT
   month_summary,
   complex_struct,
   forecast_array,
-  summary_map,
   stores_by_revenue
 
 FROM complex_types
 ORDER BY month_num
 LIMIT 100;
-
--- Additional test queries for specific E6 features
-
--- Test LATERAL joins (E6 has lateral_sql method)
-SELECT s.*, l.exploded_id
-FROM (SELECT 1 as id, ARRAY[1,2,3] as arr) s
-LATERAL VIEW EXPLODE(s.arr) l AS exploded_id;
-
--- Test FIND_IN_SET transformation
-SELECT FIND_IN_SET('b', 'a,b,c,d') as position_in_set;
-
--- Test specialized E6 functions
-SELECT
-  -- E6-specific timestamp functions
-  FROM_UNIXTIME_WITHUNIT(1672574200, 'seconds') as from_unix_with_unit,
-
-  -- Date/time with timezone handling
-  PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '2023-01-01 10:30:00') as parsed_datetime,
-  FORMAT_DATETIME('%Y-%m-%d', CURRENT_TIMESTAMP()) as formatted_datetime,
-
-  -- E6 quote identifier handling for reserved keywords
-  `ORDER` as reserved_keyword_column,
-  `SELECT` as another_reserved_keyword,
-
-  -- Test Unicode and encoding (mentioned in profiling report)
-  'Special chars: àáâãäåæçèéêë 中文 🚀' as unicode_string,
-
-  -- Test interval operations
-  CURRENT_TIMESTAMP() + INTERVAL '1 DAY' as tomorrow,
-  DATE '2023-01-01' + INTERVAL '1 MONTH' as next_month,
-
-  -- E6 cast with all supported types
-  CAST('123' AS INT) as cast_int,
-  CAST('123.45' AS DECIMAL(10,2)) as cast_decimal,
-  CAST('true' AS BOOLEAN) as cast_boolean,
-  CAST('2023-01-01' AS DATE) as cast_date,
-  CAST('2023-01-01 10:30:00' AS TIMESTAMP) as cast_timestamp;

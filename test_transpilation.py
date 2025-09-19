@@ -4,7 +4,7 @@ from sqlglot.optimizer.qualify_columns import quote_identifiers
 from_sql = 'databricks'
 to_sql = 'e6'
 
-query = """select timestamp '2025-09-11'  + ('1' || 'hour')::INTERVAL;
+query = """select meta:bincounttaskmeta from silver_mongo.tms.tasks 
 """
 tree = sqlglot.parse_one(query, read=from_sql, error_level=None)
 

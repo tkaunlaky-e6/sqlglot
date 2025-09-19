@@ -106,14 +106,14 @@ async def convert_query(
             escape_unicode(query),
         )
 
-        query = normalize_unicode_spaces(query)
-        logger.info(
-            "%s AT %s FROM %s — Normalized (escaped):\n%s",
-            query_id,
-            timestamp,
-            from_sql.upper(),
-            escape_unicode(query),
-        )
+        # query = normalize_unicode_spaces(query)
+        # logger.info(
+        #     "%s AT %s FROM %s — Normalized (escaped):\n%s",
+        #     query_id,
+        #     timestamp,
+        #     from_sql.upper(),
+        #     escape_unicode(query),
+        # )
 
         item = "condenast"
         query, comment = strip_comment(query, item)

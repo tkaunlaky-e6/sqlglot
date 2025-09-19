@@ -131,7 +131,9 @@ class ProfilingMiddleware(BaseHTTPMiddleware):
 
             # Generate a unique filename and save the report
             timestamp = int(time.time())
-            report_filename = f"optimization/profiling/profile_report_{timestamp}.html"
+            import os
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            report_filename = os.path.join(base_dir, "optimization", "profiling", f"profile_report_{timestamp}.html")
 
             with open(report_filename, "w", encoding="utf-8") as f:
                 f.write(profiler.output_html())
